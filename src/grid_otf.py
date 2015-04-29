@@ -22,8 +22,8 @@
 
 import math
 import numpy
+import sys
 from scipy import interpolate
-from counter import counter
 
 def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=None, beam_fwhm=None,
              kern="gaussbessel", gauss_fwhm=None):
@@ -166,9 +166,10 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
     # some precalculations
 
     # calculate the pixel coordinates for each spectrum
-    # the choice of velocity pixel shouldn't matter
+    # the choice of velocity and stokes pixel shouldn't matter
     # use "0" as origin pixel here to match indexing convention in python
-    x_pix, y_pix, v_pix = wcsObj.wcs_world2pix(xsky, ysky, numpy.zeros(len(xsky)),0)
+    zeros = numpy.zeros(len(xsky))
+    x_pix, y_pix, v_pix, s_pix = wcsObj.wcs_world2pix(xsky, ysky, zeros, zeros, 0)
 
     # the support radius squared
     r_support_sqrd = r_support**2
@@ -211,73 +212,78 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
 
     unitSpectrum = numpy.ones((1,nchan))
 
+    counterMax = "%d" % nx
+    counterFormat = "Row %%%dd out of %s" % (len(counterMax),counterMax)
     for i in range(nx):
-      counter(i+1, nx, infostring='Row ')
-      for j in range(ny):        
+        # update the counter string
+        counterStr = counterFormat % (i+1)
+        sys.stdout.write("\r%s" % counterStr)
+        sys.stdout.flush()
+        for j in range(ny):        
           
-          if kern == "nearest":
-              xdist = x_pix-i
-              ydist = y_pix-j
-              keep = (numpy.where((xdist>=-0.5) & (xdist<0.5) & (ydist>=-0.5) & (ydist<0.5)))[0]
-          else:
-              pix_dist_sqrd = ((x_pix - i)*(x_pix - i) + (y_pix - j)*(y_pix - j))
+            if kern == "nearest":
+                xdist = x_pix-i
+                ydist = y_pix-j
+                keep = (numpy.where((xdist>=-0.5) & (xdist<0.5) & (ydist>=-0.5) & (ydist<0.5)))[0]
+            else:
+                pix_dist_sqrd = ((x_pix - i)*(x_pix - i) + (y_pix - j)*(y_pix - j))
 
-              #       EXTRACT PIXELS WITHIN THE RADIUS OF INTEREST OF THIS PIXEL 
-              # need an equivalent to where
-              keep = (numpy.where(pix_dist_sqrd <= r_support_pix_sqrd))[0]
+                #       EXTRACT PIXELS WITHIN THE RADIUS OF INTEREST OF THIS PIXEL 
+                # need an equivalent to where
+                keep = (numpy.where(pix_dist_sqrd <= r_support_pix_sqrd))[0]
 
-          keep_ct = len(keep)
+            keep_ct = len(keep)
 
-          # I think the distiction here between > 1 and == 1 doesn't matter for python
-          if keep_ct > 1:
+            # I think the distiction here between > 1 and == 1 doesn't matter for python
+            if keep_ct > 1:
            
-              if kern == "nearest":
-                  conv_fn = numpy.ones(keep_ct)
-              else:
-                  #          INTERPOLATE TO GET THE CONV. FN. FOR EACH DATA POINT
-                  pre_grid_x = pix_dist_sqrd[keep] / pre_delta_pix_sqrd
+                if kern == "nearest":
+                    conv_fn = numpy.ones(keep_ct)
+                else:
+                    #          INTERPOLATE TO GET THE CONV. FN. FOR EACH DATA POINT
+                    pre_grid_x = pix_dist_sqrd[keep] / pre_delta_pix_sqrd
 
-                  conv_fn = interp_pre_conv_fn(pre_grid_x)
+                    conv_fn = interp_pre_conv_fn(pre_grid_x)
 
-                  #          DATA RIGHT ON TOP OF THE PIXEL TO THE MAX OF THE CONV. FN.
-                  ind = (numpy.where(pix_dist_sqrd[keep] < cap_dist_sqrd_pix))[0]
-                  if len(ind) > 0: 
-                      conv_fn[ind] = max_conv_fn
+                    #          DATA RIGHT ON TOP OF THE PIXEL TO THE MAX OF THE CONV. FN.
+                    ind = (numpy.where(pix_dist_sqrd[keep] < cap_dist_sqrd_pix))[0]
+                    if len(ind) > 0: 
+                        conv_fn[ind] = max_conv_fn
 
-              #          PLACE A MINIMUM THRESHOLD NEEDED TO CONSIDER A GRID POINT
-              coverage = conv_fn.sum()
-              if coverage > cutoff_conv_fn:
+                #          PLACE A MINIMUM THRESHOLD NEEDED TO CONSIDER A GRID POINT
+                coverage = conv_fn.sum()
+                if coverage > cutoff_conv_fn:
 
-                  #             GET A VECTOR OF NORMALIZED WEIGHTS
-                  combined_weight = conv_fn * weight[keep]
-                  total_wt = combined_weight.sum()
-                  # the normalization should happen at the end if this is a re-entrant routine
-                  # adding on to an existing image and weights.
-                  combined_weight /= total_wt
+                    #             GET A VECTOR OF NORMALIZED WEIGHTS
+                    combined_weight = conv_fn * weight[keep]
+                    total_wt = combined_weight.sum()
+                    # the normalization should happen at the end if this is a re-entrant routine
+                    # adding on to an existing image and weights.
+                    combined_weight /= total_wt
 
-                  # again, something clever needs to be done with nan here
-                  # this is the trick
-                  combined_weight.shape = (len(combined_weight),1)
-                  wtMatrix = combined_weight.dot(unitSpectrum)
-                  spectrum = (data[keep,:] * wtMatrix).sum(axis=0)
+                    # again, something clever needs to be done with nan here
+                    # this is the trick
+                    combined_weight.shape = (len(combined_weight),1)
+                    wtMatrix = combined_weight.dot(unitSpectrum)
+                    spectrum = (data[keep,:] * wtMatrix).sum(axis=0)
 
-                  #             UPDATE THE DATA AND WEIGHTING CUBES
-                  data_cube[:,j,i] = spectrum
-                  weight_cube[:,j,i] = total_wt*unitSpectrum
+                    #             UPDATE THE DATA AND WEIGHTING CUBES
+                    data_cube[:,j,i] = spectrum
+                    weight_cube[:,j,i] = total_wt*unitSpectrum
 
-          #       HANDLE THE CASE OF ONLY ONE DATA POINT
-          if keep_ct == 1:
-              if kern == "nearest":
-                  conv_fn = 1.0
-              else:
-                  if pix_dist_sqrd[keep[0]] < cap_dist_sqrd_pix:
-                      conv_fn = max_conv_fn 
-                  else:
-                      conv_fn = interp_pre_conv_fn(pix_dist_sqrd[keep[0]] / pre_delta_pix_sqrd)
+            #       HANDLE THE CASE OF ONLY ONE DATA POINT
+            if keep_ct == 1:
+                if kern == "nearest":
+                    conv_fn = 1.0
+                else:
+                    if pix_dist_sqrd[keep[0]] < cap_dist_sqrd_pix:
+                        conv_fn = max_conv_fn 
+                    else:
+                        conv_fn = interp_pre_conv_fn(pix_dist_sqrd[keep[0]] / pre_delta_pix_sqrd)
 
-              if (conv_fn > cutoff_conv_fn):
-                  data_cube[:,j,i] = data[keep[0],:]
-                  weight_cube[:,j,i] = conv_fn*weight[keep[0]]
+                if (conv_fn > cutoff_conv_fn):
+                    data_cube[:,j,i] = data[keep[0],:]
+                    weight_cube[:,j,i] = conv_fn*weight[keep[0]]
 
     # finish the counter so output is back to it's usual place
     print ''

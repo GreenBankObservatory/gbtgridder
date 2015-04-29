@@ -22,6 +22,7 @@
 
 from make_header import make_header
 from grid_otf import grid_otf
+from get_data import get_data
 
 import pyfits
 from astropy import wcs
@@ -83,76 +84,6 @@ def parse_channels(channelString):
                 raise
     return (start,end)
 
-def get_data(sdfitsFile, nchan, chanStart, chanStop):
-    """
-    Given an sdfits file, return the desired raw data and associated
-    sky positions, weight, and frequency axis information
-    """
-    result = {}
-    thisFits = pyfits.open(sdfitsFile,memmap=True,mode='readonly')
-
-    # this expects a single SDFITS table in each file
-    assert(len(thisFits)==2 and thisFits[1].header['extname'] == 'SINGLE DISH')
-
-    # if there are no rows, just move on
-    if thisFits[1].header['NAXIS2'] == 0:
-        print "Warning: %s has no rows in the SDFITS table.  Skipping." % sdfitsFile
-        return result
-
-    # get NCHAN for this file from the value of format for the DATA column
-    # I wish pyfits had an easier way to get at this value
-    colAtr = thisFits[1].columns.info("name,format",output=False)
-    thisNchan = int(colAtr['format'][colAtr['name'].index('DATA')][:-1])
-
-    if nchan is None:
-        nchan = thisNchan
-
-    # all tables must be consistent
-    assert(nchan == thisNchan)
-
-    result['xsky'] = thisFits[1].data.field('crval2')
-    result['ysky'] = thisFits[1].data.field('crval3')
-    # need to look at CTYPE2 and CTYPE3 for sky coordinate type
-    # this code currently assumes RA/DEC J2000
-    # what to do if the data aren't all in the same coord. system.?
-
-    if chanStop is None or chanStop >= nchan:
-        chanStop = nchan-1
-    result["chanStart"] = chanStart
-    result["chanStop"] = chanStop
-    result["nchan"] = nchan
-
-    # replace NaNs in the raw data with 0s
-    result["rawdata"] = numpy.nan_to_num(thisFits[1].data.field('data')[:,chanStart:(chanStop+1)])
-
-    # for now, scalar weights.  Eventually spectral weights - which will need to know
-    # where the NaNs were in the above
-    texp = thisFits[1].data.field('exposure')
-    tsys = thisFits[1].data.field('tsys')
-    # using nan_to_num here sets wt to 0 if there are tsys=0.0 values in the table
-    result["wt"] = numpy.nan_to_num(texp/(tsys*tsys))
-
-    # column values relevant to the frequency axis
-    crv1 = thisFits[1].data.field('crval1')
-    cd1 = thisFits[1].data.field('cdelt1')
-    crp1 = thisFits[1].data.field('crpix1')
-    vframe = thisFits[1].data.field('vframe')
-    frest = thisFits[1].data.field('restfreq')
-    beta = numpy.sqrt((constants.c+vframe)/(constants.c-vframe))
-
-    # full frequency axis in doppler tracked frame from first row
-    indx = numpy.arange(result["rawdata"].shape[1])+1.0+chanStart
-    freq = (crv1[0]+cd1[0]*(indx-crp1[0]))*beta[0]
-    result["freq"] = freq
-    result["restfreq"] = frest[0]
-
-    # source name of first spectra
-    result['source'] = thisFits[1].data[0].field('object')
-    
-    thisFits.close()
-
-    return result
-
 def set_output_files(source, frest, args, file_types):
 
     outputNameRoot = args.output
@@ -210,6 +141,17 @@ def gbtgridder(args):
     frest = None
     faxis = None
     source = None
+    dataUnits = None
+    calibType = None
+    veldef = None
+    specsys = None
+    coordType = (None,None)
+    radesys = None
+    equinox = None
+    observer = None
+    telescop = None
+    instrume = None
+    dateObs = None
     outputFiles = {}
 
     print "Loading data ... "
@@ -232,6 +174,17 @@ def gbtgridder(args):
                 frest = dataRecord["restfreq"]
                 faxis = dataRecord["freq"]
                 source = dataRecord["source"]
+                dataUnits = dataRecord["units"]
+                calibType = dataRecord["calibtype"]
+                veldef = dataRecord["veldef"]
+                specsys = dataRecord["specsys"]
+                coordType = (dataRecord["xctype"],dataRecord["yctype"])
+                radesys = dataRecord["radesys"]
+                equinox = dataRecord["equinox"]
+                telescop = dataRecord["telescop"]
+                instrume = dataRecord["instrume"]
+                observer = dataRecord["observer"]
+                dateObs = dataRecord["date-obs"]
 
                 # this also checks that the output files are OK to write
                 # given the value of the clobber argument
@@ -254,8 +207,11 @@ def gbtgridder(args):
     # need to worry about points clearly off the grid, e.g. no Antenna pointings (0.0) or
     # a reference position incorrectly included in the data to be gridded.
     # idlToSdfits rounds the center from the mean to the nearest second/arcsecond
-    # this is OK if xsky is known to be RA, needs to avoid division by 15.0 if not
-    centerXsky = round(numpy.mean(xsky)*3600.0/15)/(3600.0/15.0)
+    # for RA or HA, divide by 15
+    if coordType[0] in ['RA','HA']:
+        centerXsky = round(numpy.mean(xsky)*3600.0/15)/(3600.0/15.0)
+    else:
+        centerXsky = round(numpy.mean(xsky)*3600.0)/3600.0
     centerYsky = round(numpy.mean(ysky)*3600.0)/3600.0
 
     # and the appropriate pixel size
@@ -281,13 +237,17 @@ def gbtgridder(args):
 
     # image size, idlToSdfits method
     # padding around border
-    imPadding = math.ceil(45./(pix_scale*3600.0))
+    # imPadding = math.ceil(45./(pix_scale*3600.0))
     # add in padding and truncate to an integer
-    xsize = int((xRange*1.1/pix_scale)+2*imPadding)
-    ysize = int((yRange*1.1/pix_scale)+2*imPadding)
+    # xsize = int((xRange*1.1/pix_scale)+2*imPadding)
+    # ysize = int((yRange*1.1/pix_scale)+2*imPadding)
     # image.py then does this ... 
-    xsize = int((2*round(xsize/1.95)) + 20)
-    ysize = int((2*round(ysize/1.95)) + 20)
+    # xsize = int((2*round(xsize/1.95)) + 20)
+    # ysize = int((2*round(ysize/1.95)) + 20)
+    # But idlToSdfits only sees one SDFITS file at a time, so the extra padding makes sense there.
+    # With all the data, I think just padding by 10% + 20 pixels is sufficient
+    xsize = int(math.ceil(xRange*1.1/pix_scale))+20
+    ysize = int(math.ceil(yRange*1.2/pix_scale))+20
 
     # gaussian size to use in gridding.
     # this is what Adam used:  gauss_fwhm = beam_fwhm/3.0
@@ -315,7 +275,7 @@ def gbtgridder(args):
     # only enough to build the WCS object from it + BEAM size info
     # I had trouble with embedded HISTORY cards and the WCS constructor
     # so those are omitted for now
-    hdr = make_header(centerXsky, centerYsky, xsize, ysize, pix_scale, frest, faxis, beam_fwhm, proj='SFL', veldef="RAD")
+    hdr = make_header(centerXsky, centerYsky, xsize, ysize, pix_scale, coordType, radesys, equinox, frest, faxis, beam_fwhm, veldef, specsys, proj='SFL')
 
     # relax is turned on here for compatibility with previous images produced by AIPS from the gbtpipeline
     # there may be a better solution
@@ -330,7 +290,14 @@ def gbtgridder(args):
         return
 
     # start writing stuff to disk
-    hdr.add_history('Created by gbtgridder at '+ time.strftime("%a %b %d %H:%M%S %Z %Y",time.localtime()))
+    # add additional information to the header
+    hdr['telescop'] = telescop
+    hdr['instrume'] = instrume
+    hdr['observer'] = observer
+    hdr['date-obs'] = (dateObs,'Observed time of first spectra gridded')
+    hdr['date-map'] = (time.strftime("%Y-%m-%dT%H:%M:%S",time.gmtime()),"Created by gbtgridder")
+    hdr['data'] = time.strftime("%Y-%m-%d",time.gmtime())
+
     if args.kernel == 'gauss':
         hdr.add_history('Convolved with Gaussian convolution function.')
         hdr['BMAJ'] = beam_fwhm
@@ -338,7 +305,7 @@ def gbtgridder(args):
     elif kern == 'gaussbessel':
         hdr.add_history('Convolved with optimized Gaussian-Bessel convolution function.')
         hdr['BMAJ'] = (beam_fwhm,'*But* not Gaussian.')
-        hdr['BMIN'] = (beam_fwhm,'*Bit* not Gaussian.')
+        hdr['BMIN'] = (beam_fwhm,'*But* not Gaussian.')
     else:
         hdr.add_history('Gridded to nearest cell')
         hdr['BMAJ'] = beam_fwhm
@@ -346,13 +313,42 @@ def gbtgridder(args):
     hdr['BPA'] = 0.0
     # need to change this to get the actual units from the data
     # could add additional notes to the comment field
-    hdr['BUNIT'] = ('K','TA*')
+    # if Jy, make this Jy/Beam
+    if dataUnits == 'Jy':
+        dataUnits = 'Jy/Beam'
+    hdr['BUNIT'] = (dataUnits,calibType)
+    hdr['DATAMAX'] = numpy.nanmax(cube)
+    hdr['DATAMIN'] = numpy.nanmin(cube)
+    # note the parameter values - this must be updated as new parameters are added
+    if args.channels is not None:
+        hdr.add_comment("gbtgridder: channels: "+args.channels)
+    else:
+        hdr.add_comment("gbtgridder: all channels used")
+    hdr.add_comment("gbtgridder: clobber: "+str(args.clobber))
+    hdr.add_comment("gbtgridder: kernel: "+args.kernel)
+    if args.output is not None:
+        hdr.add_comment("gbtgridder: output: "+args.output)
+    hdr.add_comment("gbtgridder: sdfits files ...")
+    for thisFile in args.SDFITSfiles:
+        # protect against long file names - don't use more than one comment row to
+        # document this.  80 chars total, 8 for "COMMENT ", 12 for "gbtgridder: "
+        # leaving 60 for the file name
+        if len(thisFile) > 60:
+            thisFile = "*"+thisFile[-59:]
+        hdr.add_comment("gbtgridder: " + thisFile)
+
+    hdr.add_comment("IEEE not-a-number used for blanked pixels.")
+    hdr.add_comment("  FITS (Flexible Image Transport System) format is defined in 'Astronomy")
+    hdr.add_comment("  and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H")
 
     phdu = pyfits.PrimaryHDU(cube, hdr)
     phdu.writeto(outputFiles["cube"])
 
     wtHdr = hdr.copy()
-    wtHdr['BUNIT'] = 'weight'  # change from K -> weight
+    wtHdr['BUNIT'] = ('weight','Weight cube')  # change from K -> weight
+    wtHdr['DATAMAX'] = numpy.nanmax(weight)
+    wtHdr['DATAMIN'] = numpy.nanmin(weight)
+
     phdu = pyfits.PrimaryHDU(weight, wtHdr)
     phdu.writeto(outputFiles["weight"])
 
@@ -361,11 +357,12 @@ def gbtgridder(args):
     # As implemented here, this is equivalent if there are equal weights along the spectral axis
     cont_map = numpy.average(cube,axis=0)
     contHdr = hdr.copy()
-    # recast this as a 2D header
-    contHdr['NAXIS'] = 2
-    for kw in ['NAXIS3','CTYPE3','CUNIT3','CRVAL3','CRPIX3','CDELT3','SPECSYS','VELREF','RESTFRQ']:
-        contHdr.remove(kw)
+    # AIPS just changes the channel count on the frequency axis, leaving everything else the same
+    contHdr['NAXIS3'] = 1
+    cont_map.shape = (1,1,cont_map.shape[0],cont_map.shape[1])
     contHdr.add_history('Average of cube along spectral axis')
+    contHdr['DATAMAX'] = numpy.nanmax(cont_map)
+    contHdr['DATAMIN'] = numpy.nanmin(cont_map)
     phdu = pyfits.PrimaryHDU(cont_map, contHdr)
     phdu.writeto(outputFiles["cont"])
 
@@ -381,6 +378,8 @@ def gbtgridder(args):
     avg_map = numpy.average(cube[baseIndx,:,:],axis=0)
     cube -= avg_map
     cube[0,:,:] = avg_map
+    hdr['DATAMAX'] = numpy.nanmax(cube)
+    hdr['DATAMIN'] = numpy.nanmin(cube)
     hdr.add_history('Subtracted the average along spectral axis over baseline region')
     hdr.add_history('Average over channels: %d:%d and %d:%d' % tuple(baseRegion))
     hdr.add_history('Channel 0 replaced with averages')
