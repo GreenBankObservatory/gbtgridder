@@ -23,6 +23,7 @@
 from make_header import make_header
 from grid_otf import grid_otf
 from get_data import get_data
+from get_cube_info import get_cube_info
 
 import pyfits
 from astropy import wcs
@@ -38,26 +39,46 @@ def read_command_line(argv):
     """Read options from the command line."""
     # if no options are set, print help      
     if len(argv) == 1:                       
-        argv.append('-h')                    
+        argv.append("-h")                    
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c','--channels', type=str,
-                        help=("Optional channel range to use.  "
-                              "'<start>:<end>' counting from 0. "))
-    parser.add_argument('SDFITSfiles', type=str, nargs='+',
-                        help=("The calibrated SDFITS files to use.")) 
-    parser.add_argument('--clobber', default=False, action='store_true',
+    parser.add_argument("-c","--channels", type=str,
+                        help="Optional channel range to use.  "
+                             "'<start>:<end>' counting from 0. ")
+    parser.add_argument("SDFITSfiles", type=str, nargs="+",
+                        help="The calibrated SDFITS files to use.") 
+    parser.add_argument("--clobber", default=False, action="store_true",
                         help="Overwrites existing output files if set.")
-    parser.add_argument('-k','--kernel', type=str, default='gauss',
+    parser.add_argument("-k","--kernel", type=str, default="gauss",
                         help="gridding kernel, must be one of 'gauss', 'gaussbessel', or 'nearest', defaults to 'gauss'")
-    parser.add_argument('-o','--output', type=str,
+    parser.add_argument("-o","--output", type=str,
                         help="root output name, instead of source and rest frequency")
+    parser.add_argument("-p","--proj", type=str, default="SFL",
+                        help="Projection to use for the spatial axes.  Must be either SFL or TAN (default is SFL)")
+    parser.add_argument("--clonecube",type=str,
+                        help="A FITS cube to use to set the image size and WCS parameters"
+                        " in the spatial dimensions.  The cube must have the same axes "
+                        " produced here, the spatial axes must be of the same type as "
+                        " found in the data to be gridded, and the projection used in the"
+                        " cube must be either TAN, SFL, or GLS [which is equivalent to SFL]."
+                        " Default is to construct the output cube using values appropriate for"
+                        " gridding all of the input data")
+    parser.add_argument("--noweight", default=False, action="store_true",
+                        help="Set this to turn off production of the output weight cube")
+    parser.add_argument("--noline", default=False, action="store_true",
+                        help="Set this to turn off prodution of the output line cube")
+    parser.add_argument("--nocont", default=False, action="store_true",
+                        help="Set this to turn off prodution of the output 'cont' image")
+    parser.add_argument("-v","--verbose", type=int, default=4,
+                        help="set the verbosity level-- 0-1:none, "
+                        "2:errors only, 3:+warnings, "
+                        "4(default):+user info, 5:+debug")
 
     args = parser.parse_args()
 
     return args
 
-def parse_channels(channelString):
+def parse_channels(channelString,verbose=4):
     "Turn a valid channel range into start and end channels"
     start = None
     end = None
@@ -65,7 +86,8 @@ def parse_channels(channelString):
         # there must be a ":"
         items = channelString.split(":")
         if len(items) != 2:
-            print "Unexpected channels argument, must contain exactly one ':'"
+            if verbose > 1:
+                print "Unexpected channels argument, must contain exactly one ':'"
             return (-1,1)
         if len(items[0]) > 0:
             try:
@@ -73,18 +95,20 @@ def parse_channels(channelString):
                 start = int(items[0])-1
                 # fixes for start < 0 happen when used
             except(ValueError):
-                print repr(':'.join(items[0])), 'not convertable to integer'
+                if verbose > 1:
+                    print repr(':'.join(items[0])), 'not convertable to integer'
                 raise
         if len(items[1]) > 0:
             try:
                 # subtract by 1 to go from FITS to python convention
                 end = int(items[1])-1
             except(ValueError):
-                print repr(':'.join(items[1])), 'not convertable to integer'
+                if verbose > 1:
+                    print repr(':'.join(items[1])), 'not convertable to integer'
                 raise
     return (start,end)
 
-def set_output_files(source, frest, args, file_types):
+def set_output_files(source, frest, args, file_types, verbose=4):
 
     outputNameRoot = args.output
     clobber = args.clobber
@@ -93,19 +117,22 @@ def set_output_files(source, frest, args, file_types):
         outputNameRoot = "%s_%.0f_MHz" % (source,frest/1.e6)
     # always tack on the underscore
     outputNameRoot += "_"
-    print "outname root : ", outputNameRoot
-    print "     clobber : ", clobber
+    if verbose > 4:
+        print "outname root : ", outputNameRoot
+        print "     clobber : ", clobber
     
     result = {}
     for file_type in file_types:
         typeName = outputNameRoot + file_type + ".fits"
         if os.path.exists(typeName):
             if not clobber:
-                print typeName + " exists, will not overwrite"
+                if verbose > 1:
+                    print typeName + " exists, will not overwrite"
                 return {}
             else:
                 os.remove(typeName)
-                print "existing " + typeName + " removed"
+                if verbose > 3:
+                    print "existing " + typeName + " removed"
         result[file_type] = typeName
     return result
 
@@ -113,7 +140,8 @@ def gbtgridder(args):
     if not args.SDFITSfiles:
         return
 
-    chanStart, chanStop = parse_channels(args.channels)
+    verbose = args.verbose
+    chanStart, chanStop = parse_channels(args.channels,verbose=verbose)
     if (chanStart is not None and chanStart < 0) or (chanStop is not None and chanStop < 0):
         return
 
@@ -123,7 +151,8 @@ def gbtgridder(args):
     sdfitsFiles = args.SDFITSfiles
     for sdf in sdfitsFiles:
         if not os.path.exists(sdf):
-            print sdf + ' does not exist'
+            if verbose > 1:
+                print sdf + ' does not exist'
             return
 
     # extract everything from the SDFITS files
@@ -154,11 +183,13 @@ def gbtgridder(args):
     dateObs = None
     outputFiles = {}
 
-    print "Loading data ... "
+    if verbose > 3:
+        print "Loading data ... "
     for thisFile in sdfitsFiles:
         try:
-            print "   ",thisFile
-            dataRecord = get_data(thisFile,nchan,chanStart,chanStop)
+            if verbose > 3:
+                print "   ",thisFile
+            dataRecord = get_data(thisFile,nchan,chanStart,chanStop,verbose=verbose)
             if len(dataRecord) == 0:
                 # empty file, skipping
                 continue
@@ -188,9 +219,11 @@ def gbtgridder(args):
 
                 # this also checks that the output files are OK to write
                 # given the value of the clobber argument
-                outputFiles = set_output_files(source, frest, args, ["cube","weight","line","cont"])
+                outputFiles = set_output_files(source, frest, args, ["cube","weight","line","cont"],
+                                               verbose=verbose)
                 if len(outputFiles) == 0:
-                    print "Unable to write to output files"
+                    if verbose > 1:
+                        print "Unable to write to output files"
                     return
                 
             else:
@@ -200,26 +233,13 @@ def gbtgridder(args):
                 rawdata = numpy.append(rawdata,dataRecord["rawdata"],axis=0)
 
         except(AssertionError):
-            print "%s had a problem, more than one table or not a valid GBT single dish FITS file?" % thisFile
+            if verbose > 1:
+                print "%s had a problem, more than one table or not a valid GBT single dish FITS file?" % thisFile
             raise
 
     # characterize the center of the image
-    # need to worry about points clearly off the grid, e.g. no Antenna pointings (0.0) or
-    # a reference position incorrectly included in the data to be gridded.
-    # idlToSdfits rounds the center from the mean to the nearest second/arcsecond
-    # for RA or HA, divide by 15
-    if coordType[0] in ['RA','HA']:
-        centerXsky = round(numpy.mean(xsky)*3600.0/15)/(3600.0/15.0)
-    else:
-        centerXsky = round(numpy.mean(xsky)*3600.0)/3600.0
-    centerYsky = round(numpy.mean(ysky)*3600.0)/3600.0
 
-    # and the appropriate pixel size
-    # need to worry about possible problems near 0/360 or +- 180?
-    xRange = xsky.max()-xsky.min()
-    yRange = ysky.max()-ysky.min()
-
-    # find the cell size, first from the beam_fwhm
+    # the beam_fwhm is needed in various places
     # currently we use the same equation used in idlToSdfits
     # there's about a 2% difference between the two
 
@@ -231,23 +251,98 @@ def gbtgridder(args):
     beam_fwhm = 1.2 * constants.c * (180.0/constants.pi) / (diam * numpy.median(faxis))
     # the 747.6 and 763.8 values above are equivalent to diam of 99.3 and 97.2 m in this equation, respectively
 
-    # cell's per beam.  Adam's code uses 4, idlToSdfits uses 6
-    # idlToSdfits also rounds up to nearest arcsecond
-    pix_scale = math.ceil(3600.0*beam_fwhm/6.0)/3600.0
+    refXsky = None
+    refYsky = None
+    pix_scale = None
+    xsize = None
+    ysize = None
+    refXpix = None
+    refYpix = None
 
-    # image size, idlToSdfits method
-    # padding around border
-    # imPadding = math.ceil(45./(pix_scale*3600.0))
-    # add in padding and truncate to an integer
-    # xsize = int((xRange*1.1/pix_scale)+2*imPadding)
-    # ysize = int((yRange*1.1/pix_scale)+2*imPadding)
-    # image.py then does this ... 
-    # xsize = int((2*round(xsize/1.95)) + 20)
-    # ysize = int((2*round(ysize/1.95)) + 20)
-    # But idlToSdfits only sees one SDFITS file at a time, so the extra padding makes sense there.
-    # With all the data, I think just padding by 10% + 20 pixels is sufficient
-    xsize = int(math.ceil(xRange*1.1/pix_scale))+20
-    ysize = int(math.ceil(yRange*1.2/pix_scale))+20
+    if args.clonecube is not None:
+        # use the cloned values
+        cubeInfo = get_cube_info(args.clonecube,verbose=verbose)
+        if cubeInfo is not None:
+            if (cubeInfo["xtype"] != coordType[0]) or \
+                    (cubeInfo["ytype"] != coordType[1]) or \
+                    (cubeInfo['proj'] != args.proj) or \
+                    (radesys is not None and (cubeInfo['radesys'] != radesys)) or \
+                    (equinox is not None and (cubeInfo['equinox'] != equinox)):
+                if verbose > 2:
+                    print "Sky coordinates of data are not the same type found in %s" % args.clonecube
+                    print "Will not clone the coordinate information from that cube"
+                    if verbose > 4:
+                        print "xtype : ", cubeInfo["xtype"], coordType[0]
+                        print "ytype : ", cubeInfo["ytype"], coordType[1]
+                        print "proj : ", cubeInfo['proj'], args.proj
+                        print "radesys : ", cubeInfo['radesys'], radesys
+                        print "equinox : ", cubeInfo['equinox'], equinox
+            else:
+                refXsky = cubeInfo["xref"]
+                refYsky = cubeInfo["yref"]
+                pix_scale = cubeInfo["pix_scale"]
+                xsize = cubeInfo["xsize"]
+                ysize = cubeInfo["ysize"]
+                refXpix = cubeInfo["xrefPix"]
+                refYpix = cubeInfo["yrefPix"]
+
+    if refXsky is None:
+        # set the reference sky position using the mean x and y positions
+        # need to worry about points clearly off the grid, e.g. no Antenna pointings (0.0) or
+        # a reference position incorrectly included in the data to be gridded.
+        # idlToSdfits rounds the center from the mean to the nearest second/arcsecond
+        # for RA or HA, divide by 15
+        if coordType[0] in ['RA','HA']:
+            refXsky = round(numpy.mean(xsky)*3600.0/15)/(3600.0/15.0)
+        else:
+            refXsky = round(numpy.mean(xsky)*3600.0)/3600.0
+        refYsky = round(numpy.mean(ysky)*3600.0)/3600.0
+
+        # and the appropriate pixel size
+        # need to worry about possible problems near 0/360 or +- 180?
+        xRange = xsky.max()-xsky.min()
+        yRange = ysky.max()-ysky.min()
+
+        # find the cell size, first from the beam_fwhm
+        # Need to decide on number of cell's per beam.  Adam`'s code uses 4, idlToSdfits uses 6
+        # idlToSdfits also rounds up to nearest arcsecond
+        pixPerBeam = 6.0
+        if args.kernel == "nearest":
+            # assume it's nyquist sampled, use 2 pixels per beam
+            pixPerBeam = 2.0
+
+        pix_scale = math.ceil(3600.0*beam_fwhm/pixPerBeam)/3600.0
+
+        # image size, idlToSdfits method
+        # padding around border
+        # imPadding = math.ceil(45./(pix_scale*3600.0))
+        # add in padding and truncate to an integer
+        # xsize = int((xRange*1.1/pix_scale)+2*imPadding)
+        # ysize = int((yRange*1.1/pix_scale)+2*imPadding)
+        # image.py then does this ... 
+        # xsize = int((2*round(xsize/1.95)) + 20)
+        # ysize = int((2*round(ysize/1.95)) + 20)
+        # But idlToSdfits only sees one SDFITS file at a time, so the extra padding makes sense there.
+        # With all the data, I think just padding by 10% + 20 pixels is sufficient
+        xsize = int(math.ceil(xRange*1.1/pix_scale))+20
+        ysize = int(math.ceil(yRange*1.2/pix_scale))+20
+
+        if args.proj == "TAN":
+            # this is how Adam does things in his IDL code
+            # the reference pixel is in the center
+            refXpix = xsize/2.0
+            refYpix = ysize/2.0
+        else:
+            # must be SFL
+            # this is how idlToSdfits+AIPS does things for GLS==SFL
+            refXpix = xsize/2.0
+            # for the Y axis is, this is where we want refYsky to be
+            centerYpix = ysize/2.0 + 1.0
+            # but by definition, refYsky must be 0.0, set set refYpix
+            # so that the current refYsky ends up at centerYpix
+            refYpix = centerYpix - refYsky/pix_scale
+            # then reset refYsky
+            refYsky = 0.0
 
     # gaussian size to use in gridding.
     # this is what Adam used:  gauss_fwhm = beam_fwhm/3.0
@@ -255,39 +350,48 @@ def gbtgridder(args):
     # the following is about 0.41*beam_fwhm vs 0.33*beam_fwhm from Adam - so wider
     gauss_fwhm = (1.5*pix_scale)*2.354/math.sqrt(2.0)
 
-    print "Map info ..."
-    print "   beam_fwhm : ", beam_fwhm, "(", beam_fwhm*60.0*60.0, " arcsec)"
-    print "   pix_scale : ", pix_scale, "(", pix_scale*60.0*60.0, " arcsec)"
-    print "  gauss fwhm : ", gauss_fwhm, "(", gauss_fwhm*60.0*60.0, " arcsec)"
-    print "    ctr Xsky : ", centerXsky
-    print "    ctr Ysky : ", centerYsky
-    print "       xsize : ", xsize
-    print "       ysize : ", ysize
-    print "          f0 : ", faxis[0]
-    print "    delta(f) : ", faxis[1]-faxis[0]
-    print "       nchan : ", nchan
-    print "       nfreq : ", len(faxis)
-    print "   N to grid : ", len(xsky)
-    print "      source : ", source
-    print " frest (MHz) : ", frest/1.e6
+    if verbose > 4:
+        print "Map info ..."
+        print "   beam_fwhm : ", beam_fwhm, "(", beam_fwhm*60.0*60.0, " arcsec)"
+        print "   pix_scale : ", pix_scale, "(", pix_scale*60.0*60.0, " arcsec)"
+        print "  gauss fwhm : ", gauss_fwhm, "(", gauss_fwhm*60.0*60.0, " arcsec)"
+        print "    ref Xsky : ", refXsky
+        print "    ref Ysky : ", refYsky
+        print "       xsize : ", xsize
+        print "       ysize : ", ysize
+        print "    ref Xpix : ", refXpix
+        print "    ref Ypix : ", refYpix
+        print "          f0 : ", faxis[0]
+        print "    delta(f) : ", faxis[1]-faxis[0]
+        print "       nchan : ", nchan
+        print "       nfreq : ", len(faxis)
+        print "   N to grid : ", len(xsky)
+        print "      source : ", source
+        print " frest (MHz) : ", frest/1.e6
 
     # build the initial header object
     # only enough to build the WCS object from it + BEAM size info
     # I had trouble with embedded HISTORY cards and the WCS constructor
     # so those are omitted for now
-    hdr = make_header(centerXsky, centerYsky, xsize, ysize, pix_scale, coordType, radesys, equinox, frest, faxis, beam_fwhm, veldef, specsys, proj='SFL')
+    hdr = make_header(refXsky, refYsky, xsize, ysize, pix_scale, refXpix, refYpix, coordType, radesys, equinox, frest, faxis, beam_fwhm, veldef, specsys, proj=args.proj, verbose=verbose)
 
     # relax is turned on here for compatibility with previous images produced by AIPS from the gbtpipeline
     # there may be a better solution
     # even so, it does not like the "-LSR" tag to the CTYPE3 value for the frequency axis
     wcsObj = wcs.WCS(hdr,relax=True)
 
-    # eventually pix_scale here should come from the wcsObject
-    (cube, weight, beam_fwhm) = grid_otf(rawdata, xsky, ysky, wcsObj, len(faxis), xsize, ysize, pix_scale, weight=wt, beam_fwhm=beam_fwhm, kern=args.kernel, gauss_fwhm=gauss_fwhm)
+    if verbose > 3:
+        print "Gridding"
+
+    (cube, weight, beam_fwhm) = grid_otf(rawdata, xsky, ysky, wcsObj, len(faxis), xsize, ysize, pix_scale, weight=wt, beam_fwhm=beam_fwhm, kern=args.kernel, gauss_fwhm=gauss_fwhm, verbose=verbose)
 
     if cube is None or weight is None:
-        print "Problem gridding data"
+        if verbose > 1:
+            print "Problem gridding data"
         return
+
+    if verbose > 3:
+        print "Writing cube"
 
     # start writing stuff to disk
     # add additional information to the header
@@ -302,7 +406,7 @@ def gbtgridder(args):
         hdr.add_history('Convolved with Gaussian convolution function.')
         hdr['BMAJ'] = beam_fwhm
         hdr['BMIN'] = beam_fwhm
-    elif kern == 'gaussbessel':
+    elif args.kernel == 'gaussbessel':
         hdr.add_history('Convolved with optimized Gaussian-Bessel convolution function.')
         hdr['BMAJ'] = (beam_fwhm,'*But* not Gaussian.')
         hdr['BMIN'] = (beam_fwhm,'*But* not Gaussian.')
@@ -344,47 +448,56 @@ def gbtgridder(args):
     phdu = pyfits.PrimaryHDU(cube, hdr)
     phdu.writeto(outputFiles["cube"])
 
-    wtHdr = hdr.copy()
-    wtHdr['BUNIT'] = ('weight','Weight cube')  # change from K -> weight
-    wtHdr['DATAMAX'] = numpy.nanmax(weight)
-    wtHdr['DATAMIN'] = numpy.nanmin(weight)
+    if not args.noweight:
+        if verbose > 3:
+            print "Writing weight cube"
+        wtHdr = hdr.copy()
+        wtHdr['BUNIT'] = ('weight','Weight cube')  # change from K -> weight
+        wtHdr['DATAMAX'] = numpy.nanmax(weight)
+        wtHdr['DATAMIN'] = numpy.nanmin(weight)
 
-    phdu = pyfits.PrimaryHDU(weight, wtHdr)
-    phdu.writeto(outputFiles["weight"])
+        phdu = pyfits.PrimaryHDU(weight, wtHdr)
+        phdu.writeto(outputFiles["weight"])
 
-    # "cont" map, sum along the spectral axis
-    # SQUASH does a weighted average
-    # As implemented here, this is equivalent if there are equal weights along the spectral axis
-    cont_map = numpy.average(cube,axis=0)
-    contHdr = hdr.copy()
-    # AIPS just changes the channel count on the frequency axis, leaving everything else the same
-    contHdr['NAXIS3'] = 1
-    cont_map.shape = (1,1,cont_map.shape[0],cont_map.shape[1])
-    contHdr.add_history('Average of cube along spectral axis')
-    contHdr['DATAMAX'] = numpy.nanmax(cont_map)
-    contHdr['DATAMIN'] = numpy.nanmin(cont_map)
-    phdu = pyfits.PrimaryHDU(cont_map, contHdr)
-    phdu.writeto(outputFiles["cont"])
+    if not args.nocont:
+        if verbose > 3:
+            print "Writing 'cont' image"
+        # "cont" map, sum along the spectral axis
+        # SQUASH does a weighted average
+        # As implemented here, this is equivalent if there are equal weights along the spectral axis
+        cont_map = numpy.average(cube,axis=0)
+        contHdr = hdr.copy()
+        # AIPS just changes the channel count on the frequency axis, leaving everything else the same
+        contHdr['NAXIS3'] = 1
+        cont_map.shape = (1,1,cont_map.shape[0],cont_map.shape[1])
+        contHdr.add_history('Average of cube along spectral axis')
+        contHdr['DATAMAX'] = numpy.nanmax(cont_map)
+        contHdr['DATAMIN'] = numpy.nanmin(cont_map)
+        phdu = pyfits.PrimaryHDU(cont_map, contHdr)
+        phdu.writeto(outputFiles["cont"])
 
-    # "line" map, subtract the along the spectral axis from every plane in the data_cube
-    # replace the 0 channel with the avg
-    # first, find the average over the baseline region
-    n = len(faxis)
-    baseRegion = [int(round(0.04*n)),int(round(0.12*n)),int(round(0.81*n)),int(round(0.89*n))]
-    # construct an index from  these regions
-    baseIndx = numpy.arange(baseRegion[1]-baseRegion[0]+1)+baseRegion[0]
-    baseIndx = numpy.append(baseIndx,numpy.arange(baseRegion[3]-baseRegion[2]+1)+baseRegion[2])
-    # this should probably be a weighted average
-    avg_map = numpy.average(cube[baseIndx,:,:],axis=0)
-    cube -= avg_map
-    cube[0,:,:] = avg_map
-    hdr['DATAMAX'] = numpy.nanmax(cube)
-    hdr['DATAMIN'] = numpy.nanmin(cube)
-    hdr.add_history('Subtracted the average along spectral axis over baseline region')
-    hdr.add_history('Average over channels: %d:%d and %d:%d' % tuple(baseRegion))
-    hdr.add_history('Channel 0 replaced with averages')
-    phdu = pyfits.PrimaryHDU(cube,hdr)
-    phdu.writeto(outputFiles["line"])
+    if not args.noline:
+        if verbose > 3:
+            print "Writing line image"
+        # "line" map, subtract the along the spectral axis from every plane in the data_cube
+        # replace the 0 channel with the avg
+        # first, find the average over the baseline region
+        n = len(faxis)
+        baseRegion = [int(round(0.04*n)),int(round(0.12*n)),int(round(0.81*n)),int(round(0.89*n))]
+        # construct an index from  these regions
+        baseIndx = numpy.arange(baseRegion[1]-baseRegion[0]+1)+baseRegion[0]
+        baseIndx = numpy.append(baseIndx,numpy.arange(baseRegion[3]-baseRegion[2]+1)+baseRegion[2])
+        # this should probably be a weighted average
+        avg_map = numpy.average(cube[baseIndx,:,:],axis=0)
+        cube -= avg_map
+        cube[0,:,:] = avg_map
+        hdr['DATAMAX'] = numpy.nanmax(cube)
+        hdr['DATAMIN'] = numpy.nanmin(cube)
+        hdr.add_history('Subtracted the average along spectral axis over baseline region')
+        hdr.add_history('Average over channels: %d:%d and %d:%d' % tuple(baseRegion))
+        hdr.add_history('Channel 0 replaced with averages')
+        phdu = pyfits.PrimaryHDU(cube,hdr)
+        phdu.writeto(outputFiles["line"])
 
     return
 
@@ -396,13 +509,19 @@ if __name__ == '__main__':
         print "kernel must be one of 'gauss', 'gaussbessel', or 'nearest'"
         sys.exit(-1)
 
-    gbtgridder(args)
-    sys.exit(-1)
+    if args.proj not in ["SFL","TAN"]:
+        print args.proj + ' is not SFL or TAN'
+        sys.exit(-1)
+
+    if args.clonecube is not None and not os.path.exists(args.clonecube):
+        print args.clonecube + ' does not exist'
+        sys.exit(-1)
 
     try:
         gbtgridder(args)
     except ValueError, msg:
-        print 'ERROR: ', msg
+        if args.verbose > 1:
+            print 'ERROR: ', msg
         sys.exit(-1)
 
 

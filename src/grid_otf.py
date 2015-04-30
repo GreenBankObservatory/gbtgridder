@@ -24,9 +24,10 @@ import math
 import numpy
 import sys
 from scipy import interpolate
+import scipy
 
 def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=None, beam_fwhm=None,
-             kern="gaussbessel", gauss_fwhm=None):
+             kern="gaussbessel", gauss_fwhm=None, verbose=4):
     """
     Grid individual spectra onto a specified regular grid following the 
     recommendations of Mangum et al. (2007).  This is writtent to be of general
@@ -67,29 +68,34 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
     # agree with length of xsky and ysky
     # it's assumed these are numpy arrays
     if len(data.shape) != 2 or len(xsky.shape) != 1 or len(ysky.shape) != 1:
-        print "data, sky coordinates have unexpected shapes"
-        print "data : ", data.shape
-        print "xsky : ", xsky.shape
-        print "ysky : ", ysky.shape
+        if verbose > 1:
+            print "data, sky coordinates have unexpected shapes"
+            print "data : ", data.shape
+            print "xsky : ", xsky.shape
+            print "ysky : ", ysky.shape
         return result
 
     nspec, nchan_data = data.shape
     if nspec == 0 or nchan_data == 0:
-        print "no data given"
+        if verbose > 1:
+            print "no data given"
         return result
 
     if nspec != len(xsky) or nspec != len(ysky):
-        print "Number of sky position values does not match number of spectra in data"
+        if verbose > 1:
+            print "Number of sky position values does not match number of spectra in data"
         return result
 
     if beam_fwhm is None:
         if 'BMAJ' not in target_hdr:
-            print "BMAJ must be in target_hdr or supplied as an argument"
+            if verbose > 1:
+                print "BMAJ must be in target_hdr or supplied as an argument"
             return result
         beam_fwhm = target_hdr['BMAJ']
 
     if kern not in ["gaussbessel","gauss","nearest"]:
-        print "kern must be one of gaussbessel or gauss"
+        if verbose > 1:
+            print "kern must be one of gaussbessel or gauss"
         return result
 
     # use the python shape - fastest changing axis is last
@@ -97,7 +103,8 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
 
     # frequency axis should agree with data
     if cubeShape[0] != nchan_data:
-        print "Frequency axis in target header and spectra length do not match"
+        if verbose > 1:
+            print "Frequency axis in target header and spectra length do not match"
         return result
 
     # does not yet support per channel weights
@@ -116,7 +123,7 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
         # r_support = 3.0 * gauss_fwhm
         # this is what we do in AIPS - 5 pixels
         r_support = 5.0 * pix_scale
-        # Adam has max_conv_fn = 0.5 here, I have no idea why
+        # Adam has max_conv_fn = 0.5 here, that seems wrong as this function peaks at 1.0
         max_conv_fn = 1.0
         # this seems extreme - from Adam, especially since has the max at 0.5
         # cutoff_conv_fn = 0.25*max_conv_fn
@@ -132,8 +139,8 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
         # r_support = beam_fwhm
         # aips - 3 pixels
         r_support = 3.0 * pix_scale
-        # Adam has max_conv_fn = 0.5 here, I have no idea why
-        max_conv_fn = 1.0
+        # this is true for this function
+        max_conv_fn = 0.5
         # again, this seems extreme
         # cutoff_conv_fn = 0.25 * max_conv_fn
         cutoff_conv_fn = 0.0
@@ -191,7 +198,15 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
     if kern=="gauss":
         pre_conv_fn = max_conv_fn * numpy.exp(-0.5 * (pre_dist/(gauss_fwhm/2.354))**2)
     elif kern == "gaussbessel":
-        pre_conv_fn = scipi.special.jv(1,scipi.pi*pre_dist/a, 1) / (scipi.pi * pre_dist/a) * numpy.exp(-1.0 * (pre_dist/b)**2)
+        # protect against pre_dist = 0.0 in the division
+        x = scipy.pi * pre_dist/a
+        zeroElem = numpy.where(x == 0.0)
+        # at most, it can happen once
+        if len(zeroElem) == 1:
+            x[zeroElem[0]] += 0.00001
+        pre_conv_fn = (scipy.special.j1(x)/x) * numpy.exp(-1.0 * (pre_dist/b)**2)
+        if len(zeroElem) == 1:
+            pre_conv_fn[zeroElem[0]] = max_conv_fn
 
     # the interpolator function where pre_conv_fn is used
     if kern != "nearest":

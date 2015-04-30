@@ -23,7 +23,7 @@
 import pyfits
 import time
 
-def make_header(xctr, yctr, xsize, ysize, pix_scale, coordType, radesys, equinox, restfreq, faxis, beam_fwhm, veldef, specsys, proj="SFL"):
+def make_header(xref, yref, xsize, ysize, pix_scale, xref_pix, yref_pix, coordType, radesys, equinox, restfreq, faxis, beam_fwhm, veldef, specsys, proj="SFL",verbose=4):
 
     hdr = pyfits.Header()
 
@@ -40,32 +40,15 @@ def make_header(xctr, yctr, xsize, ysize, pix_scale, coordType, radesys, equinox
     yctype = coordType[1] + ctypeDashes[len(coordType[1]):]
 
     # MAKE THE POSITION AXES
-    if proj == 'TAN':
-        hdr['CTYPE1'] = xctype + '-TAN'
-        hdr['CRVAL1'] = xctr
-        hdr['CRPIX1'] = (xsize/2.0)
-        hdr['CDELT1'] = -1.0*pix_scale
+    hdr['CTYPE1'] = xctype + '-' + proj
+    hdr['CRVAL1'] = xref
+    hdr['CRPIX1'] = xref_pix
+    hdr['CDELT1'] = -1.0*pix_scale
 
-        hdr['CTYPE2'] = yctype + '-TAN'
-        hdr['CRVAL2'] = yctr
-        hdr['CRPIX2'] = (ysize/2.)
-        hdr['CDELT2'] = pix_scale
-    elif proj == 'SFL':
-        hdr['CTYPE1'] = xctype + '-SFL'
-        hdr['CRVAL1'] = xctr
-        hdr['CRPIX1'] = (xsize/2.)
-        hdr['CDELT1'] = -1.0*pix_scale
-
-        # GLS projection always has CRVAL2 at 0.0
-        # set CRPIX2 so that at the center pixel (ysize/2)
-        # the y value is yctr
-        hdr['CTYPE2'] = yctype + '-SFL'
-        hdr['CRVAL2'] = 0.0
-        yctrPix = (ysize/2.0) + 1.0
-        hdr['CRPIX2'] = yctrPix - (yctr/pix_scale)
-        hdr['CDELT2'] = pix_scale
-    else:
-        raise Exception("%s is an invalid projection code, must be one of 'TAN' or 'SFL'" % proj)        
+    hdr['CTYPE2'] = yctype + '-' + proj
+    hdr['CRVAL2'] = yref
+    hdr['CRPIX2'] = yref_pix
+    hdr['CDELT2'] = pix_scale
 
     # MAKE THE VELOCITY AXIS (ALONG THE THIRD DIMENSION)
     # the frame is now indicated via SPECSYS.  Check on any other
