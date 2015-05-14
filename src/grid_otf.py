@@ -230,10 +230,11 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
     counterMax = "%d" % nx
     counterFormat = "Row %%%dd out of %s" % (len(counterMax),counterMax)
     for i in range(nx):
-        # update the counter string
-        counterStr = counterFormat % (i+1)
-        sys.stdout.write("\r%s" % counterStr)
-        sys.stdout.flush()
+        if verbose > 3:
+            # update the counter string
+            counterStr = counterFormat % (i+1)
+            sys.stdout.write("\r%s" % counterStr)
+            sys.stdout.flush()
         for j in range(ny):        
           
             if kern == "nearest":
@@ -300,8 +301,9 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
                     data_cube[:,j,i] = data[keep[0],:]
                     weight_cube[:,j,i] = conv_fn*weight[keep[0]]
 
-    # finish the counter so output is back to it's usual place
-    print ''
+    if verbose > 3:
+        # finish the counter so output is back to it's usual place
+        print ''
 
     # set 0.0 to NaN
     data_cube[data_cube==0.0] = float('nan')

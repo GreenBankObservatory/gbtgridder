@@ -35,26 +35,30 @@ from scipy import constants
 import math
 import time
 
+gbtgridderVersion = "0.0"
+
 def read_command_line(argv):
     """Read options from the command line."""
     # if no options are set, print help      
     if len(argv) == 1:                       
         argv.append("-h")                    
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(epilog="gbtgridder version: %s" % gbtgridderVersion)
     parser.add_argument("-c","--channels", type=str,
                         help="Optional channel range to use.  "
                              "'<start>:<end>' counting from 0. ")
+    parser.add_argument("-a","--average", type=int,
+                        help="Optionally average channels, keeping only nchan/naverage channels")
     parser.add_argument("SDFITSfiles", type=str, nargs="+",
                         help="The calibrated SDFITS files to use.") 
     parser.add_argument("--clobber", default=False, action="store_true",
                         help="Overwrites existing output files if set.")
-    parser.add_argument("-k","--kernel", type=str, default="gauss",
-                        help="gridding kernel, must be one of 'gauss', 'gaussbessel', or 'nearest', defaults to 'gauss'")
+    parser.add_argument("-k","--kernel", type=str, default="gauss", choices=["guass","gaussbessel","nearest"],
+                        help="gridding kernel, default is gauss")
     parser.add_argument("-o","--output", type=str,
                         help="root output name, instead of source and rest frequency")
-    parser.add_argument("-p","--proj", type=str, default="SFL",
-                        help="Projection to use for the spatial axes.  Must be either SFL or TAN (default is SFL)")
+    parser.add_argument("-p","--proj", type=str, default="SFL", choices=["SFL","TAN"],
+                        help="Projection to use for the spatial axes, default is SFL")
     parser.add_argument("--clonecube",type=str,
                         help="A FITS cube to use to set the image size and WCS parameters"
                         " in the spatial dimensions.  The cube must have the same axes "
@@ -73,6 +77,7 @@ def read_command_line(argv):
                         help="set the verbosity level-- 0-1:none, "
                         "2:errors only, 3:+warnings, "
                         "4(default):+user info, 5:+debug")
+    parser.add_argument("-V","--version", action="version", version="gbtgridder version: %s" % gbtgridderVersion)
 
     args = parser.parse_args()
 
@@ -148,6 +153,8 @@ def gbtgridder(args):
     if chanStart is None:
         chanStart = 0
 
+    average = args.average
+
     sdfitsFiles = args.SDFITSfiles
     for sdf in sdfitsFiles:
         if not os.path.exists(sdf):
@@ -189,7 +196,7 @@ def gbtgridder(args):
         try:
             if verbose > 3:
                 print "   ",thisFile
-            dataRecord = get_data(thisFile,nchan,chanStart,chanStop,verbose=verbose)
+            dataRecord = get_data(thisFile,nchan,chanStart,chanStop,average,verbose=verbose)
             if len(dataRecord) == 0:
                 # empty file, skipping
                 continue
@@ -393,6 +400,10 @@ def gbtgridder(args):
     if verbose > 3:
         print "Writing cube"
 
+    # Add in the degenerate STOKES axis
+    cube.shape = (1,)+cube.shape
+    weight.shape = cube.shape    
+
     # start writing stuff to disk
     # add additional information to the header
     hdr['telescop'] = telescop
@@ -403,15 +414,15 @@ def gbtgridder(args):
     hdr['data'] = time.strftime("%Y-%m-%d",time.gmtime())
 
     if args.kernel == 'gauss':
-        hdr.add_history('Convolved with Gaussian convolution function.')
+        hdr.add_comment('Convolved with Gaussian convolution function.')
         hdr['BMAJ'] = beam_fwhm
         hdr['BMIN'] = beam_fwhm
     elif args.kernel == 'gaussbessel':
-        hdr.add_history('Convolved with optimized Gaussian-Bessel convolution function.')
+        hdr.add_comment('Convolved with optimized Gaussian-Bessel convolution function.')
         hdr['BMAJ'] = (beam_fwhm,'*But* not Gaussian.')
         hdr['BMIN'] = (beam_fwhm,'*But* not Gaussian.')
     else:
-        hdr.add_history('Gridded to nearest cell')
+        hdr.add_comment('Gridded to nearest cell')
         hdr['BMAJ'] = beam_fwhm
         hdr['BMIN'] = beam_fwhm
     hdr['BPA'] = 0.0
@@ -424,22 +435,25 @@ def gbtgridder(args):
     hdr['DATAMAX'] = numpy.nanmax(cube)
     hdr['DATAMIN'] = numpy.nanmin(cube)
     # note the parameter values - this must be updated as new parameters are added
+    hdr.add_history("gbtgridder version: %s" % gbtgridderVersion)
     if args.channels is not None:
-        hdr.add_comment("gbtgridder: channels: "+args.channels)
+        hdr.add_history("gbtgridder channels: "+args.channels)
     else:
-        hdr.add_comment("gbtgridder: all channels used")
-    hdr.add_comment("gbtgridder: clobber: "+str(args.clobber))
-    hdr.add_comment("gbtgridder: kernel: "+args.kernel)
+        hdr.add_history("gbtgridder all channels used")
+    hdr.add_history("gbtgridder clobber: "+str(args.clobber))
+    if average is not None and average > 1:
+        hdr.add_history("gbtgridder average: %s channels" % average)
+    hdr.add_history("gbtgridder kernel: "+args.kernel)
     if args.output is not None:
-        hdr.add_comment("gbtgridder: output: "+args.output)
-    hdr.add_comment("gbtgridder: sdfits files ...")
+        hdr.add_history("gbtgridder output: "+args.output)
+    hdr.add_history("gbtgridder sdfits files ...")
     for thisFile in args.SDFITSfiles:
         # protect against long file names - don't use more than one comment row to
         # document this.  80 chars total, 8 for "COMMENT ", 12 for "gbtgridder: "
         # leaving 60 for the file name
         if len(thisFile) > 60:
             thisFile = "*"+thisFile[-59:]
-        hdr.add_comment("gbtgridder: " + thisFile)
+        hdr.add_history("gbtgridder: " + thisFile)
 
     hdr.add_comment("IEEE not-a-number used for blanked pixels.")
     hdr.add_comment("  FITS (Flexible Image Transport System) format is defined in 'Astronomy")
@@ -465,12 +479,13 @@ def gbtgridder(args):
         # "cont" map, sum along the spectral axis
         # SQUASH does a weighted average
         # As implemented here, this is equivalent if there are equal weights along the spectral axis
-        cont_map = numpy.average(cube,axis=0)
+        cont_map = numpy.average(cube,axis=1)
         contHdr = hdr.copy()
         # AIPS just changes the channel count on the frequency axis, leaving everything else the same
         contHdr['NAXIS3'] = 1
-        cont_map.shape = (1,1,cont_map.shape[0],cont_map.shape[1])
-        contHdr.add_history('Average of cube along spectral axis')
+        # restore the now-degenerate frequency axis to the shape
+        cont_map.shape = (1,)+cont_map.shape
+        contHdr.add_history('gbtgridder: average of cube along spectral axis')
         contHdr['DATAMAX'] = numpy.nanmax(cont_map)
         contHdr['DATAMIN'] = numpy.nanmin(cont_map)
         phdu = pyfits.PrimaryHDU(cont_map, contHdr)
@@ -488,14 +503,14 @@ def gbtgridder(args):
         baseIndx = numpy.arange(baseRegion[1]-baseRegion[0]+1)+baseRegion[0]
         baseIndx = numpy.append(baseIndx,numpy.arange(baseRegion[3]-baseRegion[2]+1)+baseRegion[2])
         # this should probably be a weighted average
-        avg_map = numpy.average(cube[baseIndx,:,:],axis=0)
+        avg_map = numpy.average(cube[:,baseIndx,:,:],axis=1)
         cube -= avg_map
-        cube[0,:,:] = avg_map
+        cube[:,0,:,:] = avg_map
         hdr['DATAMAX'] = numpy.nanmax(cube)
         hdr['DATAMIN'] = numpy.nanmin(cube)
-        hdr.add_history('Subtracted the average along spectral axis over baseline region')
-        hdr.add_history('Average over channels: %d:%d and %d:%d' % tuple(baseRegion))
-        hdr.add_history('Channel 0 replaced with averages')
+        hdr.add_history('gbtgridder: subtracted an average over baseline region on freq axis')
+        hdr.add_history('gbtgridder: average over channels: %d:%d and %d:%d' % tuple(baseRegion))
+        hdr.add_history('gbtgridder: channel 0 replaced with averages')
         phdu = pyfits.PrimaryHDU(cube,hdr)
         phdu.writeto(outputFiles["line"])
 
@@ -504,14 +519,6 @@ def gbtgridder(args):
 if __name__ == '__main__':
 
     args = read_command_line(sys.argv)
-
-    if args.kernel not in ["gauss","gaussbessel","nearest"]:
-        print "kernel must be one of 'gauss', 'gaussbessel', or 'nearest'"
-        sys.exit(-1)
-
-    if args.proj not in ["SFL","TAN"]:
-        print args.proj + ' is not SFL or TAN'
-        sys.exit(-1)
 
     if args.clonecube is not None and not os.path.exists(args.clonecube):
         print args.clonecube + ' does not exist'

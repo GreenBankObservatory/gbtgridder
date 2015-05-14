@@ -20,11 +20,13 @@
 #       P. O. Box 2
 #       Green Bank, WV 24944-0002 USA
 
+from boxcar import boxcar
+
 import pyfits
 import numpy
 from scipy import constants
 
-def get_data(sdfitsFile, nchan, chanStart, chanStop, verbose=4):
+def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
     """
     Given an sdfits file, return the desired raw data and associated
     sky positions, weight, and frequency axis information
@@ -39,6 +41,7 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, verbose=4):
     if thisFits[1].header['NAXIS2'] == 0:
         if verbose > 2:
             print "Warning: %s has no rows in the SDFITS table.  Skipping." % sdfitsFile
+        thisFits.close()
         return result
 
     # get NCHAN for this file from the value of format for the DATA column
@@ -51,6 +54,13 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, verbose=4):
 
     # all tables must be consistent
     assert(nchan == thisNchan)
+
+    # averaging must be > 0 and <= nchan (equal to nchan may be silly)
+    if average < 1 or average > nchan:
+        if verbose > 1:
+            print "Error: averaging must be between 1 and the number of channels"
+        thisFits.close()
+        return result
 
     result['xsky'] = thisFits[1].data.field('crval2')
     result['ysky'] = thisFits[1].data.field('crval3')
@@ -95,6 +105,10 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, verbose=4):
     freq = (crv1[0]+cd1[0]*(indx-crp1[0]))*beta[0]
     result["freq"] = freq
     result["restfreq"] = frest[0]
+
+    # do any channel averaging here
+    if average is not None:
+        (result["rawdata"],result["freq"]) = boxcar(result["rawdata"],result["freq"],average)
 
     # decompose VELDEF into velocity definition (still call this veldef)
     # and specsys - appropriate for current WCS spectral coordinate convention.
