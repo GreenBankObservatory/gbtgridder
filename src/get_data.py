@@ -56,7 +56,7 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
     assert(nchan == thisNchan)
 
     # averaging must be > 0 and <= nchan (equal to nchan may be silly)
-    if average < 1 or average > nchan:
+    if average is not None and (average < 1 or average > nchan):
         if verbose > 1:
             print "Error: averaging must be between 1 and the number of channels"
         thisFits.close()
