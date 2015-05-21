@@ -433,7 +433,17 @@ def gbtgridder(args):
         dataUnits = 'Jy/Beam'
     hdr['BUNIT'] = (dataUnits,calibType)
     hdr['DATAMAX'] = numpy.nanmax(cube)
-    hdr['DATAMIN'] = numpy.nanmin(cube)
+    nanCube = False
+    if numpy.isnan(hdr['DATAMAX']):
+        nanCube = True
+        if verbose > 2:
+            print "Entire data cube is not-a-number, this may be because a few channels are consistently bad"
+            print "consider restricting the channel range"
+        # remove it
+        hdr.remove('DATAMAX')
+    else:
+        hdr['DATAMIN'] = numpy.nanmin(cube)
+
     # note the parameter values - this must be updated as new parameters are added
     hdr.add_history("gbtgridder version: %s" % gbtgridderVersion)
     if args.channels is not None:
@@ -467,8 +477,9 @@ def gbtgridder(args):
             print "Writing weight cube"
         wtHdr = hdr.copy()
         wtHdr['BUNIT'] = ('weight','Weight cube')  # change from K -> weight
-        wtHdr['DATAMAX'] = numpy.nanmax(weight)
-        wtHdr['DATAMIN'] = numpy.nanmin(weight)
+        if nanCube is not True:
+            wtHdr['DATAMAX'] = numpy.nanmax(weight)
+            wtHdr['DATAMIN'] = numpy.nanmin(weight)
 
         phdu = pyfits.PrimaryHDU(weight, wtHdr)
         phdu.writeto(outputFiles["weight"])
@@ -486,8 +497,9 @@ def gbtgridder(args):
         # restore the now-degenerate frequency axis to the shape
         cont_map.shape = (1,)+cont_map.shape
         contHdr.add_history('gbtgridder: average of cube along spectral axis')
-        contHdr['DATAMAX'] = numpy.nanmax(cont_map)
-        contHdr['DATAMIN'] = numpy.nanmin(cont_map)
+        if nanCube is not True:
+            contHdr['DATAMAX'] = numpy.nanmax(cont_map)
+            contHdr['DATAMIN'] = numpy.nanmin(cont_map)
         phdu = pyfits.PrimaryHDU(cont_map, contHdr)
         phdu.writeto(outputFiles["cont"])
 
@@ -506,8 +518,9 @@ def gbtgridder(args):
         avg_map = numpy.average(cube[:,baseIndx,:,:],axis=1)
         cube -= avg_map
         cube[:,0,:,:] = avg_map
-        hdr['DATAMAX'] = numpy.nanmax(cube)
-        hdr['DATAMIN'] = numpy.nanmin(cube)
+        if nanCube is not True:
+            hdr['DATAMAX'] = numpy.nanmax(cube)
+            hdr['DATAMIN'] = numpy.nanmin(cube)
         hdr.add_history('gbtgridder: subtracted an average over baseline region on freq axis')
         hdr.add_history('gbtgridder: average over channels: %d:%d and %d:%d' % tuple(baseRegion))
         hdr.add_history('gbtgridder: channel 0 replaced with averages')
