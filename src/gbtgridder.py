@@ -390,7 +390,15 @@ def gbtgridder(args):
     if verbose > 3:
         print "Gridding"
 
-    (cube, weight, beam_fwhm) = grid_otf(rawdata, xsky, ysky, wcsObj, len(faxis), xsize, ysize, pix_scale, weight=wt, beam_fwhm=beam_fwhm, kern=args.kernel, gauss_fwhm=gauss_fwhm, verbose=verbose)
+    try:
+        (cube, weight, beam_fwhm) = grid_otf(rawdata, xsky, ysky, wcsObj, len(faxis), xsize, ysize, pix_scale, weight=wt, beam_fwhm=beam_fwhm, kern=args.kernel, gauss_fwhm=gauss_fwhm, verbose=verbose)
+    except MemoryError:
+        if verbose > 1:
+            print "Not enough memory to create the image cubes necessary to grid this data"
+            print "   Requested image size : %d x %d x %d " % (xsize, ysize, len(faxis))
+            print "   find a beefier machine, consider restricting the data to fewer channels or using channel averaging"
+            print "   or use AIPS (with idlToSdfits) to grid all of this data"
+        return
 
     if cube is None or weight is None:
         if verbose > 1:
