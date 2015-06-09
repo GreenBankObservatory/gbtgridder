@@ -230,10 +230,11 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
     counterMax = "%d" % nx
     counterFormat = "Row %%%dd out of %s" % (len(counterMax),counterMax)
     for i in range(nx):
-        # update the counter string
-        counterStr = counterFormat % (i+1)
-        sys.stdout.write("\r%s" % counterStr)
-        sys.stdout.flush()
+        if verbose > 3:
+            # update the counter string
+            counterStr = counterFormat % (i+1)
+            sys.stdout.write("\r%s" % counterStr)
+            sys.stdout.flush()
         for j in range(ny):        
           
             if kern == "nearest":
@@ -274,20 +275,24 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
                     total_wt = combined_weight.sum()
                     # the normalization should happen at the end if this is a re-entrant routine
                     # adding on to an existing image and weights.
-                    combined_weight /= total_wt
 
-                    # again, something clever needs to be done with nan here
-                    # this is the trick
-                    combined_weight.shape = (len(combined_weight),1)
-                    wtMatrix = combined_weight.dot(unitSpectrum)
-                    spectrum = (data[keep,:] * wtMatrix).sum(axis=0)
+                    # do nothing if total_wt is <= 0.0
+                    if total_wt > 0.0:
 
-                    #             UPDATE THE DATA AND WEIGHTING CUBES
-                    data_cube[:,j,i] = spectrum
-                    weight_cube[:,j,i] = total_wt*unitSpectrum
+                        combined_weight /= total_wt
+
+                        # again, something clever needs to be done with nan here
+                        combined_weight.shape = (len(combined_weight),1)
+                        wtMatrix = combined_weight.dot(unitSpectrum)
+                        spectrum = (data[keep,:] * wtMatrix).sum(axis=0)
+
+                        #             UPDATE THE DATA AND WEIGHTING CUBES
+                        data_cube[:,j,i] = spectrum
+                        weight_cube[:,j,i] = total_wt*unitSpectrum
 
             #       HANDLE THE CASE OF ONLY ONE DATA POINT
-            if keep_ct == 1:
+            #       ignore data with a weight <= 0.0
+            if keep_ct == 1 and weight[keep[0]] > 0.0:
                 if kern == "nearest":
                     conv_fn = 1.0
                 else:
@@ -300,8 +305,9 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
                     data_cube[:,j,i] = data[keep[0],:]
                     weight_cube[:,j,i] = conv_fn*weight[keep[0]]
 
-    # finish the counter so output is back to it's usual place
-    print ''
+    if verbose > 3:
+        # finish the counter so output is back to it's usual place
+        print ''
 
     # set 0.0 to NaN
     data_cube[data_cube==0.0] = float('nan')
