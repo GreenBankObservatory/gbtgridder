@@ -1,0 +1,16 @@
+#!/bin/bash
+
+unset PYTHONPATH
+
+fullpath=`readlink -f $0`
+pathdir=`dirname $fullpath`
+
+source /home/gbt7/pipeline/gridder/bin/activate
+
+STAT_FILE="/home/scratch/pipeline/gridder.log"
+if [ -w $STAT_FILE ]; then
+    echo `whoami`,`date`,`uname -n`,`pwd`,$fullpath $* >> $STAT_FILE
+fi
+
+python ${pathdir}/gbtgridder.py $*
+
