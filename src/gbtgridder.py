@@ -34,6 +34,7 @@ import numpy
 from scipy import constants
 import math
 import time
+import warnings
 
 gbtgridderVersion = "0.0"
 
@@ -440,10 +441,17 @@ def gbtgridder(args):
     if dataUnits == 'Jy':
         dataUnits = 'Jy/Beam'
     hdr['BUNIT'] = (dataUnits,calibType)
-    hdr['DATAMAX'] = numpy.nanmax(cube)
+
+    # This suppresses runtime NaN warnings if the cube is empty
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        hdr['DATAMAX'] = numpy.nanmax(cube)
+
     nanCube = False
     if numpy.isnan(hdr['DATAMAX']):
         nanCube = True
+        # this could possibly be done inside the above with block
+        # if the warnings catch was more sophisticated
         if verbose > 2:
             print "Entire data cube is not-a-number, this may be because a few channels are consistently bad"
             print "consider restricting the channel range"
