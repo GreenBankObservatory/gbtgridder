@@ -35,7 +35,21 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
     thisFits = pyfits.open(sdfitsFile,memmap=True,mode='readonly')
 
     # this expects a single SDFITS table in each file
-    assert(len(thisFits)==2 and thisFits[1].header['extname'] == 'SINGLE DISH')
+    # it is a serious error and so None is the returned result
+    if len(thisFits) < 2:
+        if verbose > 2:
+            print "%s has no extensions and is not a single dish FITS file, can not continue." % sdfitsFile
+        return None
+
+    if len(thisFits) > 2:
+        if verbose > 2:
+            print "%s has more than 1 extension, can not continue." % sdfitsFile
+        return None
+
+    if thisFits[1].header['extname'] != 'SINGLE DISH':
+        if verbose > 2:
+            print "%s is not a single dish FITS file, can not continue." % sdfitsFile
+        return None
 
     # if there are no rows, just move on
     if thisFits[1].header['NAXIS2'] == 0:

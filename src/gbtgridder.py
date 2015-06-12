@@ -198,6 +198,11 @@ def gbtgridder(args):
             if verbose > 3:
                 print "   ",thisFile
             dataRecord = get_data(thisFile,nchan,chanStart,chanStop,average,verbose=verbose)
+            if dataRecord is None:
+                # there was a problem that should not be recovered from
+                # reported by get_data, no additional reporting necessary here
+                sys.exit(1)
+
             if len(dataRecord) == 0:
                 # empty file, skipping
                 continue
@@ -242,7 +247,7 @@ def gbtgridder(args):
 
         except(AssertionError):
             if verbose > 1:
-                print "%s had a problem, more than one table or not a valid GBT single dish FITS file?" % thisFile
+                print "There was an unexpected problem processing %s" % thisFile
             raise
 
     # characterize the center of the image
