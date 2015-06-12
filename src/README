@@ -1,5 +1,0 @@
-
-to setup the pipeline environment on gondor:
-
-$ source /export/data_1/bgarwood/gbtpipeline/pipeline-env/bin/activate 
-
