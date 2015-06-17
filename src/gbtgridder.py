@@ -301,20 +301,35 @@ def gbtgridder(args):
 
     if refXsky is None:
         # set the reference sky position using the mean x and y positions
-        # need to worry about points clearly off the grid, e.g. no Antenna pointings (0.0) or
-        # a reference position incorrectly included in the data to be gridded.
+        # need to worry about points clearly off the grid
+        #   e.g. a reference position incorrectly included in the data to be gridded.
+
+        # this masks out antenna positions exactly equal to 0.0 - unlikely to happen
+        # except when there is no valid antenna pointing for that scan.
+        nonZeroXY = (xsky!=0.0) & (ysky!=0.0)
+
+        # watch for the pathological case where there is no good antenna data
+        # which can not be gridded at all
+        if numpy.all(nonZeroXY == False):
+            # always print this out, independent of verbosity level
+            print "All antenna pointings are exactly equal to 0.0, can not grid this data"
+            return
+
+        if verbose > 3 and numpy.any(nonZeroXY == False):
+            print "%d spectra will be excluded because the antenna pointing is exactly equal to 0.0 on both axes - unlikely to be a valid position" % (nonZeroXY == False).sum()
+
         # idlToSdfits rounds the center from the mean to the nearest second/arcsecond
         # for RA or HA, divide by 15
         if coordType[0] in ['RA','HA']:
-            refXsky = round(numpy.mean(xsky)*3600.0/15)/(3600.0/15.0)
+            refXsky = round(numpy.mean(xsky[nonZeroXY])*3600.0/15)/(3600.0/15.0)
         else:
-            refXsky = round(numpy.mean(xsky)*3600.0)/3600.0
-        refYsky = round(numpy.mean(ysky)*3600.0)/3600.0
+            refXsky = round(numpy.mean(xsky[nonZeroXY])*3600.0)/3600.0
+        refYsky = round(numpy.mean(ysky[nonZeroXY])*3600.0)/3600.0
 
         # and the appropriate pixel size
         # need to worry about possible problems near 0/360 or +- 180?
-        xRange = xsky.max()-xsky.min()
-        yRange = ysky.max()-ysky.min()
+        xRange = xsky[nonZeroXY].max()-xsky[nonZeroXY].min()
+        yRange = ysky[nonZeroXY].max()-ysky[nonZeroXY].min()
 
         # find the cell size, first from the beam_fwhm
         # Need to decide on number of cell's per beam.  Adam`'s code uses 4, idlToSdfits uses 6
