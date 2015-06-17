@@ -166,9 +166,18 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
         result['units'] = 'K'
 
     # additional information - this is what idlToSdfits supplies
-    result['telescop'] = thisFits[1].header['telescop']
-    result['instrume'] = thisFits[1].header['backend']
-    result['observer'] = thisFits[1].data[0].field('observer')
+    # green bank convention, try keywords first, then column, then give up
+    keys = ["TELESCOP","INSTRUME","OBSERVER"]
+    for key in keys:
+        # all these values are strings
+        value = "unknown"
+        if key in thisFits[1].header:
+            value = thisFits[1].header[key]
+        else:
+            if key in thisFits[1].data.names:
+                value = thisFits[1].data[0].field(key)
+        result[key.lower()] = value
+
     # date-obs from first row
     result['date-obs'] = thisFits[1].data[0].field('date-obs')
     
