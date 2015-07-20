@@ -392,6 +392,7 @@ def gbtgridder(args):
 
     refXsky = None
     refYsky = None
+    centerYsky = None
     pix_scale = None
     xsize = None
     ysize = None
@@ -425,27 +426,49 @@ def gbtgridder(args):
                 refXpix = cubeInfo["xrefPix"]
                 refYpix = cubeInfo["yrefPix"]
 
+
+    # this is set when needed, but used in multiple places
+    nonZeroXY = None
+
     if refXsky is None:
         if args.mapcenter is not None:
             # use user-supplied value
             refXsky = args.mapcenter[0]
         else:
             # set the reference sky position using the mean x and y positions
-            # need to worry about points clearly off the grid, e.g. no Antenna pointings (0.0) or
-            # a reference position incorrectly included in the data to be gridded.
+            # need to worry about points clearly off the grid
+            #   e.g. a reference position incorrectly included in the data to be gridded.
+
+            if nonZeroXY is None:
+                # this masks out antenna positions exactly equal to 0.0 - unlikely to happen
+                # except when there is no valid antenna pointing for that scan.
+                nonZeroXY = (xsky!=0.0) & (ysky!=0.0)
+
+            # watch for the pathological case where there is no good antenna data
+            # which can not be gridded at all
+            if numpy.all(nonZeroXY == False):
+                # always print this out, independent of verbosity level
+                print "All antenna pointings are exactly equal to 0.0, can not grid this data"
+                return
+
+            if verbose > 3 and numpy.any(nonZeroXY == False):
+                print "%d spectra will be excluded because the antenna pointing is exactly equal to 0.0 on both axes - unlikely to be a valid position" % (nonZeroXY == False).sum()
+
             # idlToSdfits rounds the center from the mean to the nearest second/arcsecond
             # for RA or HA, divide by 15
             if coordType[0] in ['RA','HA']:
-                refXsky = round(numpy.mean(xsky)*3600.0/15)/(3600.0/15.0)
+                refXsky = round(numpy.mean(xsky[nonZeroXY])*3600.0/15)/(3600.0/15.0)
             else:
-                refXsky = round(numpy.mean(xsky)*3600.0)/3600.0
+                refXsky = round(numpy.mean(xsky[nonZeroXY])*3600.0)/3600.0
 
     if refYsky is None:
         if args.mapcenter is not None:
             # use user-supplied value
             refYsky = args.mapcenter[1]
         else:
-            refYsky = round(numpy.mean(ysky)*3600.0)/3600.0
+            # nonZeroXY MUST have already been set above to get here
+            # do not check that it's set or set it here
+            refYsky = round(numpy.mean(ysky[nonZeroXY])*3600.0)/3600.0
 
     if pix_scale is None:
         if args.pixelwidth is not None:
@@ -469,9 +492,16 @@ def gbtgridder(args):
             xsize = args.size[0]
             ysize = args.size[1]
         else:
+            if nonZeroXY is None:
+                # only do this once
+                # this masks out antenna positions exactly equal to 0.0 - unlikely to happen
+                # except when there is no valid antenna pointing for that scan.
+                nonZeroXY = (xsky!=0.0) & (ysky!=0.0)
+                
             # need to worry about possible problems near 0/360 or +- 180?
-            xRange = xsky.max()-xsky.min()
-            yRange = ysky.max()-ysky.min()
+            xRange = xsky[nonZeroXY].max()-xsky[nonZeroXY].min()
+            yRange = ysky[nonZeroXY].max()-ysky[nonZeroXY].min()
+
             # image size, idlToSdfits method
             # padding around border
             # imPadding = math.ceil(45./(pix_scale*3600.0))
@@ -486,6 +516,8 @@ def gbtgridder(args):
             xsize = int(math.ceil(xRange*1.1/pix_scale))+20
             ysize = int(math.ceil(yRange*1.2/pix_scale))+20
 
+    # used only for informational purposes
+    centerYsky = refYsky
     if refXpix is None or refYpix is None:
         # both should be set together or unset together
         if args.proj == "TAN":
@@ -518,6 +550,7 @@ def gbtgridder(args):
         print "  gauss fwhm : ", gauss_fwhm, "(", gauss_fwhm*60.0*60.0, " arcsec)"
         print "    ref Xsky : ", refXsky
         print "    ref Ysky : ", refYsky
+        print " center Ysky : ", centerYsky
         print "       xsize : ", xsize
         print "       ysize : ", ysize
         print "    ref Xpix : ", refXpix
