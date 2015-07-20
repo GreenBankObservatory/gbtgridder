@@ -36,7 +36,7 @@ import math
 import time
 import warnings
 
-gbtgridderVersion = "0.0"
+gbtgridderVersion = "0.1"
 
 def read_command_line(argv):
     """Read options from the command line."""
@@ -47,17 +47,25 @@ def read_command_line(argv):
     parser = argparse.ArgumentParser(epilog="gbtgridder version: %s" % gbtgridderVersion)
     parser.add_argument("-c","--channels", type=str,
                         help="Optional channel range to use.  "
-                             "'<start>:<end>' counting from 0. ")
+                             "'<start>:<end>' counting from 0.")
     parser.add_argument("-a","--average", type=int,
                         help="Optionally average channels, keeping only nchan/naverage channels")
+    parser.add_argument("-s","--scans", type=str, 
+                        help="Only use data from these scans.  comma separated list or <start>:<end> range syntax or combination of both")
     parser.add_argument("SDFITSfiles", type=str, nargs="+",
                         help="The calibrated SDFITS files to use.") 
     parser.add_argument("--clobber", default=False, action="store_true",
                         help="Overwrites existing output files if set.")
-    parser.add_argument("-k","--kernel", type=str, default="gauss", choices=["guass","gaussbessel","nearest"],
+    parser.add_argument("-k","--kernel", type=str, default="gauss", choices=["gauss","gaussbessel","nearest"],
                         help="gridding kernel, default is gauss")
     parser.add_argument("-o","--output", type=str,
                         help="root output name, instead of source and rest frequency")
+    parser.add_argument('--mapcenter', metavar=('LONG','LAT'), type=float, nargs=2,
+                        help="Map center in longitude and latitude of coordinate type used in data (RA/DEC, Galactic, etc) (degrees)")
+    parser.add_argument('--size', metavar=('X','Y'), type=int, nargs=2,
+                        help="Image X,Y size (pixels)")
+    parser.add_argument('--pixelwidth', type=float, help="Image pixel width on sky (arcsec)")
+    parser.add_argument('--restfreq', type=float, help="Rest frequency (MHz)")
     parser.add_argument("-p","--proj", type=str, default="SFL", choices=["SFL","TAN"],
                         help="Projection to use for the spatial axes, default is SFL")
     parser.add_argument("--clonecube",type=str,
@@ -67,7 +75,8 @@ def read_command_line(argv):
                         " found in the data to be gridded, and the projection used in the"
                         " cube must be either TAN, SFL, or GLS [which is equivalent to SFL]."
                         " Default is to construct the output cube using values appropriate for"
-                        " gridding all of the input data")
+                        " gridding all of the input data.  Use of --clonecube overrides any use"
+                        " of --size, --pixelwidth, --mapcenter and --proj arguments.")
     parser.add_argument("--noweight", default=False, action="store_true",
                         help="Set this to turn off production of the output weight cube")
     parser.add_argument("--noline", default=False, action="store_true",
@@ -89,11 +98,12 @@ def parse_channels(channelString,verbose=4):
     start = None
     end = None
     if channelString is not None:
+        print "channelString (%s)" % channelString
         # there must be a ":"
         items = channelString.split(":")
         if len(items) != 2:
             if verbose > 1:
-                print "Unexpected channels argument, must contain exactly one ':'"
+                print "Unexpected channels argument, must contain exactly one ':' - %s" % channelString
             return (-1,1)
         if len(items[0]) > 0:
             try:
@@ -113,6 +123,111 @@ def parse_channels(channelString,verbose=4):
                     print repr(':'.join(items[1])), 'not convertable to integer'
                 raise
     return (start,end)
+
+def parse_scans(scanlist):
+    """Given a range string, produce a list of integers
+
+    Inclusive and exclusive integers are both possible.
+
+    The range string 1:4,6:8,10 becomes 1,2,3,4,6,7,8,10
+    The range string 1:4,-2 becomes 1,3,4
+        
+    Keywords:
+       rangelist -- a range string with inclusive ranges and
+                    exclusive integers
+
+    Returns:
+       a (list) of integers
+
+    >>> cl = CommandLine()
+    >>> cl._parse_range('1:4,6:8,10')
+    [1, 2, 3, 4, 6, 7, 8, 10]
+    >>> cl._parse_range('1:4,-2')
+    [1, 3, 4]
+    """
+    # copied from _parse_range in gbtpipeline
+
+    oklist = set([])
+    excludelist = set([])
+
+    scanlist = scanlist.replace(' ', '')
+    scanlist = scanlist.split(',')
+
+    # item is single value or range
+    for item in scanlist:
+        item = item.split(':')
+
+        # change to ints
+        try:
+            int_item = [int(ii) for ii in item]
+        except(ValueError):
+            print repr(':'.join(item)), 'not convertable to integer'
+            raise
+
+        if 1 == len(int_item):
+            # single inclusive or exclusive item
+            if int_item[0] < 0:
+                excludelist.add(abs(int_item[0]))
+            else:
+                oklist.add(int_item[0])
+
+        elif 2 == len(int_item):
+            # range
+            if int_item[0] <= int_item[1]:
+                if int_item[0] < 0:
+                    print item[0], ',', item[1], 'must start with a '
+                    'non-negative number'
+                    return []
+
+                if int_item[0] == int_item[1]:
+                    thisrange = [int_item[0]]
+                else:
+                    thisrange = range(int_item[0], int_item[1]+1)
+
+                for ii in thisrange:
+                    oklist.add(ii)
+            else:
+                print item[0], ',', item[1], 'needs to be in increasing '
+                'order'
+                raise
+        else:
+            print item, 'has more than 2 values'
+
+    for exitem in excludelist:
+        try:
+            oklist.remove(exitem)
+        except(KeyError):
+            oklist = [str(item) for item in oklist]
+            print 'ERROR: excluded item', exitem, 'does not exist in '
+            'inclusive range'
+            raise
+
+    return sorted(list(oklist))
+
+def format_scans(scanlist):
+    "Turn a list of scans into a string using range syntax where appropriate"
+    result = None
+    rangeCount = 0
+    lastScan = -1
+    for scan in sorted(scanlist):
+        if result is None:
+            result = "%s" % scan
+        else:
+            if (scan-lastScan) == 1:
+                # it's a range
+                rangeCount += 1
+            else:
+                if rangeCount > 0:
+                    # a previous range has ended
+                    result += ":%s" % lastScan
+                    rangeCount = 0
+                # either way, this one is printed - new item
+                result += ",%s" % scan
+        lastScan = scan
+    if rangeCount > 0:
+        # a final range needs to be terminated
+        result += ":%s" % lastScan
+    return result
 
 def set_output_files(source, frest, args, file_types, verbose=4):
 
@@ -156,6 +271,10 @@ def gbtgridder(args):
 
     average = args.average
 
+    scanlist = args.scans
+    if args.scans is not None:
+        scanlist = parse_scans(scanlist)
+
     sdfitsFiles = args.SDFITSfiles
     for sdf in sdfitsFiles:
         if not os.path.exists(sdf):
@@ -189,6 +308,7 @@ def gbtgridder(args):
     telescop = None
     instrume = None
     dateObs = None
+    uniqueScans = None
     outputFiles = {}
 
     if verbose > 3:
@@ -197,7 +317,7 @@ def gbtgridder(args):
         try:
             if verbose > 3:
                 print "   ",thisFile
-            dataRecord = get_data(thisFile,nchan,chanStart,chanStop,average,verbose=verbose)
+            dataRecord = get_data(thisFile,nchan,chanStart,chanStop,average,scanlist,verbose=verbose)
             if dataRecord is None:
                 # there was a problem that should not be recovered from
                 # reported by get_data, no additional reporting necessary here
@@ -229,6 +349,7 @@ def gbtgridder(args):
                 instrume = dataRecord["instrume"]
                 observer = dataRecord["observer"]
                 dateObs = dataRecord["date-obs"]
+                uniqueScans = numpy.unique(dataRecord["scans"])
 
                 # this also checks that the output files are OK to write
                 # given the value of the clobber argument
@@ -244,11 +365,16 @@ def gbtgridder(args):
                 ysky = numpy.append(ysky,dataRecord["ysky"])
                 wt = numpy.append(wt,dataRecord["wt"])
                 rawdata = numpy.append(rawdata,dataRecord["rawdata"],axis=0)
+                uniqueScans = numpy.unique(numpy.append(uniqueScans,dataRecord["scans"]))
 
         except(AssertionError):
             if verbose > 1:
                 print "There was an unexpected problem processing %s" % thisFile
             raise
+
+    if args.restfreq is not None:
+        # Use user supplied rest frequency, conver to Hz
+        frest = args.restfreq * 1.0e6
 
     # characterize the center of the image
 
@@ -300,46 +426,68 @@ def gbtgridder(args):
                 refYpix = cubeInfo["yrefPix"]
 
     if refXsky is None:
-        # set the reference sky position using the mean x and y positions
-        # need to worry about points clearly off the grid, e.g. no Antenna pointings (0.0) or
-        # a reference position incorrectly included in the data to be gridded.
-        # idlToSdfits rounds the center from the mean to the nearest second/arcsecond
-        # for RA or HA, divide by 15
-        if coordType[0] in ['RA','HA']:
-            refXsky = round(numpy.mean(xsky)*3600.0/15)/(3600.0/15.0)
+        if args.mapcenter is not None:
+            # use user-supplied value
+            refXsky = args.mapcenter[0]
         else:
-            refXsky = round(numpy.mean(xsky)*3600.0)/3600.0
-        refYsky = round(numpy.mean(ysky)*3600.0)/3600.0
+            # set the reference sky position using the mean x and y positions
+            # need to worry about points clearly off the grid, e.g. no Antenna pointings (0.0) or
+            # a reference position incorrectly included in the data to be gridded.
+            # idlToSdfits rounds the center from the mean to the nearest second/arcsecond
+            # for RA or HA, divide by 15
+            if coordType[0] in ['RA','HA']:
+                refXsky = round(numpy.mean(xsky)*3600.0/15)/(3600.0/15.0)
+            else:
+                refXsky = round(numpy.mean(xsky)*3600.0)/3600.0
 
-        # and the appropriate pixel size
-        # need to worry about possible problems near 0/360 or +- 180?
-        xRange = xsky.max()-xsky.min()
-        yRange = ysky.max()-ysky.min()
+    if refYsky is None:
+        if args.mapcenter is not None:
+            # use user-supplied value
+            refYsky = args.mapcenter[1]
+        else:
+            refYsky = round(numpy.mean(ysky)*3600.0)/3600.0
 
-        # find the cell size, first from the beam_fwhm
-        # Need to decide on number of cell's per beam.  Adam`'s code uses 4, idlToSdfits uses 6
-        # idlToSdfits also rounds up to nearest arcsecond
-        pixPerBeam = 6.0
-        if args.kernel == "nearest":
-            # assume it's nyquist sampled, use 2 pixels per beam
-            pixPerBeam = 2.0
+    if pix_scale is None:
+        if args.pixelwidth is not None:
+            # use user-supplied value, convert to degrees
+            pix_scale = args.pixelwidth / 3600.0
+        else:
+            # find the cell size, first from the beam_fwhm
+            # Need to decide on number of cell's per beam.  Adam`'s code uses 4, idlToSdfits uses 6
+            # idlToSdfits also rounds up to nearest arcsecond
+            pixPerBeam = 6.0
+            if args.kernel == "nearest":
+                # assume it's nyquist sampled, use 2 pixels per beam
+                pixPerBeam = 2.0
 
-        pix_scale = math.ceil(3600.0*beam_fwhm/pixPerBeam)/3600.0
+            pix_scale = math.ceil(3600.0*beam_fwhm/pixPerBeam)/3600.0
 
-        # image size, idlToSdfits method
-        # padding around border
-        # imPadding = math.ceil(45./(pix_scale*3600.0))
-        # add in padding and truncate to an integer
-        # xsize = int((xRange*1.1/pix_scale)+2*imPadding)
-        # ysize = int((yRange*1.1/pix_scale)+2*imPadding)
-        # image.py then does this ... 
-        # xsize = int((2*round(xsize/1.95)) + 20)
-        # ysize = int((2*round(ysize/1.95)) + 20)
-        # But idlToSdfits only sees one SDFITS file at a time, so the extra padding makes sense there.
-        # With all the data, I think just padding by 10% + 20 pixels is sufficient
-        xsize = int(math.ceil(xRange*1.1/pix_scale))+20
-        ysize = int(math.ceil(yRange*1.2/pix_scale))+20
+    if xsize is None or ysize is None:
+        # set both together
+        if args.size is not None:
+            # use user-supplied value
+            xsize = args.size[0]
+            ysize = args.size[1]
+        else:
+            # need to worry about possible problems near 0/360 or +- 180?
+            xRange = xsky.max()-xsky.min()
+            yRange = ysky.max()-ysky.min()
+            # image size, idlToSdfits method
+            # padding around border
+            # imPadding = math.ceil(45./(pix_scale*3600.0))
+            # add in padding and truncate to an integer
+            # xsize = int((xRange*1.1/pix_scale)+2*imPadding)
+            # ysize = int((yRange*1.1/pix_scale)+2*imPadding)
+            # image.py then does this ... 
+            # xsize = int((2*round(xsize/1.95)) + 20)
+            # ysize = int((2*round(ysize/1.95)) + 20)
+            # But idlToSdfits only sees one SDFITS file at a time, so the extra padding makes sense there.
+            # With all the data, I think just padding by 10% + 20 pixels is sufficient
+            xsize = int(math.ceil(xRange*1.1/pix_scale))+20
+            ysize = int(math.ceil(yRange*1.2/pix_scale))+20
 
+    if refXpix is None or refYpix is None:
+        # both should be set together or unset together
         if args.proj == "TAN":
             # this is how Adam does things in his IDL code
             # the reference pixel is in the center
@@ -356,7 +504,7 @@ def gbtgridder(args):
             refYpix = centerYpix - refYsky/pix_scale
             # then reset refYsky
             refYsky = 0.0
-
+            
     # gaussian size to use in gridding.
     # this is what Adam used:  gauss_fwhm = beam_fwhm/3.0
     # this duplicates the aparm(2)=1.5*cellsize used by AIPS in the default pipeline settings
@@ -381,6 +529,7 @@ def gbtgridder(args):
         print "   N to grid : ", len(xsky)
         print "      source : ", source
         print " frest (MHz) : ", frest/1.e6
+        print "       scans : ", format_scans(uniqueScans)
 
     # build the initial header object
     # only enough to build the WCS object from it + BEAM size info
@@ -477,6 +626,8 @@ def gbtgridder(args):
     hdr.add_history("gbtgridder kernel: "+args.kernel)
     if args.output is not None:
         hdr.add_history("gbtgridder output: "+args.output)
+    if args.scans is not None:
+        hdr.add_history("gbtgridder scans: "+args.scans)
     hdr.add_history("gbtgridder sdfits files ...")
     for thisFile in args.SDFITSfiles:
         # protect against long file names - don't use more than one comment row to
@@ -554,8 +705,26 @@ if __name__ == '__main__':
 
     args = read_command_line(sys.argv)
 
+    # argument checking - perhaps this should be a separate function
+
     if args.clonecube is not None and not os.path.exists(args.clonecube):
         print args.clonecube + ' does not exist'
+        sys.exit(-1)
+        
+    if args.mapcenter is not None and (abs(args.mapcenter[0]) > 360.0 or abs(args.mapcenter[1]) > 90.0):
+        print "mapcenter values are in degrees. |LONG| should be <= 360.0 and |LAT| <= 90.0"
+        sys.exit(-1)
+
+    if args.size is not None and (args.size[0] <= 0 or args.size[1] <= 0):
+        print "X and Y size values must be > 0"
+        sys.exit(-1)
+
+    if args.pixelwidth is not None and args.pixelwidth <= 0:
+        print "pixelwidth must be > 0"
+        sys.exit(-1)
+
+    if args.restfreq is not None and args.restfreq <= 0:
+        print "restfreq must be > 0"
         sys.exit(-1)
 
     try:

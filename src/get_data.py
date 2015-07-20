@@ -26,7 +26,7 @@ import pyfits
 import numpy
 from scipy import constants
 
-def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
+def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, verbose=4):
     """
     Given an sdfits file, return the desired raw data and associated
     sky positions, weight, and frequency axis information
@@ -76,14 +76,30 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
         thisFits.close()
         return result
 
-    result['xsky'] = thisFits[1].data.field('crval2')
-    result['ysky'] = thisFits[1].data.field('crval3')
+    thisTabData = thisFits[1].data
+    if scanlist is not None:
+        allScans = thisTabData.field('scan')
+        uniqueScans = numpy.unique(allScans)
+        scanMask = numpy.full(allScans.shape,True,dtype=bool)
+        for scan in uniqueScans:
+            if scan not in scanlist:
+                scanMask[allScans==scan] = False
+        thisTabData = thisTabData[scanMask]
+        if len(thisTabData) == 0:
+            if verbose > 2:
+                print "Warning: %s has no rows within the list of selected scan numbers.  Skipping." % sdfitsFile
+            thisFits.close()
+            return result                
+
+    result['scans'] = thisTabData.field('scan')
+    result['xsky'] = thisTabData.field('crval2')
+    result['ysky'] = thisTabData.field('crval3')
 
     # assumes all the data are in the same coordinate system
-    result['xctype'] = thisFits[1].data[0].field('ctype2')
-    result['yctype'] = thisFits[1].data[0].field('ctype3')
-    result['radesys'] = thisFits[1].data[0].field('radesys')
-    result['equinox'] = thisFits[1].data[0].field('equinox')
+    result['xctype'] = thisTabData[0].field('ctype2')
+    result['yctype'] = thisTabData[0].field('ctype3')
+    result['radesys'] = thisTabData[0].field('radesys')
+    result['equinox'] = thisTabData[0].field('equinox')
 
     if chanStop is None or chanStop >= nchan:
         chanStop = nchan-1
@@ -92,12 +108,12 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
     result["nchan"] = nchan
 
     # replace NaNs in the raw data with 0s
-    result["rawdata"] = numpy.nan_to_num(thisFits[1].data.field('data')[:,chanStart:(chanStop+1)])
+    result["rawdata"] = numpy.nan_to_num(thisTabData.field('data')[:,chanStart:(chanStop+1)])
 
     # for now, scalar weights.  Eventually spectral weights - which will need to know
     # where the NaNs were in the above
-    texp = thisFits[1].data.field('exposure')
-    tsys = thisFits[1].data.field('tsys')
+    texp = thisTabData.field('exposure')
+    tsys = thisTabData.field('tsys')
     # using nan_to_num here sets wt to 0 if there are tsys=0.0 values in the table
     result["wt"] = numpy.nan_to_num(texp/(tsys*tsys))
     # to match current idlToSdfits behavior ..
@@ -107,11 +123,11 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
 
     # column values relevant to the frequency axis
     # assumes axis is FREQ
-    crv1 = thisFits[1].data.field('crval1')
-    cd1 = thisFits[1].data.field('cdelt1')
-    crp1 = thisFits[1].data.field('crpix1')
-    vframe = thisFits[1].data.field('vframe')
-    frest = thisFits[1].data.field('restfreq')
+    crv1 = thisTabData.field('crval1')
+    cd1 = thisTabData.field('cdelt1')
+    crp1 = thisTabData.field('crpix1')
+    vframe = thisTabData.field('vframe')
+    frest = thisTabData.field('restfreq')
     beta = numpy.sqrt((constants.c+vframe)/(constants.c-vframe))
 
     # full frequency axis in doppler tracked frame from first row
@@ -128,7 +144,7 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
     # and specsys - appropriate for current WCS spectral coordinate convention.
     # this will throw an exception if there is no hyphen.  A proper
     # sdfits file will always have that hyphen
-    veldef = thisFits[1].data[0].field('veldef')
+    veldef = thisTabData[0].field('veldef')
     veldef, dopframe = veldef.split('-')
     result['veldef'] = veldef
     # translate dopframe into specsys
@@ -150,11 +166,11 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
         result['specsys'] = specSysDict['OBS']
 
     # source name of first spectra
-    result['source'] = thisFits[1].data[0].field('object')
+    result['source'] = thisTabData[0].field('object')
 
     # data units, assumes all rows have the same as the first one
     # also assumes DATA is column 7
-    result['units'] = thisFits[1].data[0].field('tunit7')
+    result['units'] = thisTabData[0].field('tunit7')
     # currently the pipeline sets this to the argument value of the
     # requested calibration units, e.g. Ta, Tmb, Jy.  This should
     # really be physical units with the calibration type indicated
@@ -168,9 +184,9 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, verbose=4):
     # additional information - this is what idlToSdfits supplies
     result['telescop'] = thisFits[1].header['telescop']
     result['instrume'] = thisFits[1].header['backend']
-    result['observer'] = thisFits[1].data[0].field('observer')
+    result['observer'] = thisTabData[0].field('observer')
     # date-obs from first row
-    result['date-obs'] = thisFits[1].data[0].field('date-obs')
+    result['date-obs'] = thisTabData[0].field('date-obs')
     
     thisFits.close()
 
