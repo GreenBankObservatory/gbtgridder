@@ -20,7 +20,7 @@
 #       P. O. Box 2
 #       Green Bank, WV 24944-0002 USA
 
-import pyfits
+from astropy.io import fits as pyfits
 import time
 
 def make_header(xref, yref, xsize, ysize, pix_scale, xref_pix, yref_pix, coordType, radesys, equinox, restfreq, faxis, beam_fwhm, veldef, specsys, proj="SFL",verbose=4):

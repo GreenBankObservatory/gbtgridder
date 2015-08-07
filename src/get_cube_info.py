@@ -20,7 +20,7 @@
 #       P. O. Box 2
 #       Green Bank, WV 24944-0002 USA
 
-import pyfits
+from astropy.io import fits as pyfits
 import os
 
 def get_cube_info(cubeFile, verbose=4):

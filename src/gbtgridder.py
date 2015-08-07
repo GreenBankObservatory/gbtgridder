@@ -25,8 +25,8 @@ from grid_otf import grid_otf
 from get_data import get_data
 from get_cube_info import get_cube_info
 
-import pyfits
 from astropy import wcs
+from astropy.io import fits as pyfits
 import os
 import sys
 import argparse
