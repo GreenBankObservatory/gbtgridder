@@ -22,17 +22,23 @@
 
 from boxcar import boxcar
 
-import pyfits
 import numpy
 from scipy import constants
+import astropy.time as apTime
+from astropy.io import fits
 
-def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, verbose=4):
+# instead of reporting on tsys flagging here, just return number actually flagged here
+# for reporting later
+
+def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys, maxtsys, 
+             getdata=True,verbose=4):
     """
-    Given an sdfits file, return the desired raw data and associated
-    sky positions, weight, and frequency axis information
+    Given an sdfits file, return the desired data and associated
+    sky positions, weight, polarization and frequency axis information.
+    If getdata is False then do not actually return the data values.
     """
     result = {}
-    thisFits = pyfits.open(sdfitsFile,memmap=True,mode='readonly')
+    thisFits = fits.open(sdfitsFile,memmap=True,mode='readonly')
 
     # this expects a single SDFITS table in each file
     # it is a serious error and so None is the returned result
@@ -59,7 +65,7 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, verbose=
         return result
 
     # get NCHAN for this file from the value of format for the DATA column
-    # I wish pyfits had an easier way to get at this value
+    # I wish astropy.io.fits had an easier way to get at this value
     colAtr = thisFits[1].columns.info("name,format",output=False)
     thisNchan = int(colAtr['format'][colAtr['name'].index('DATA')][:-1])
 
@@ -76,6 +82,7 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, verbose=
         thisFits.close()
         return result
 
+    # scan selection first
     thisTabData = thisFits[1].data
     if scanlist is not None:
         allScans = thisTabData.field('scan')
@@ -94,6 +101,7 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, verbose=
     result['scans'] = thisTabData.field('scan')
     result['xsky'] = thisTabData.field('crval2')
     result['ysky'] = thisTabData.field('crval3')
+    result['stokes'] = thisTabData.field('crval4')
 
     # assumes all the data are in the same coordinate system
     result['xctype'] = thisTabData[0].field('ctype2')
@@ -101,25 +109,65 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, verbose=
     result['radesys'] = thisTabData[0].field('radesys')
     result['equinox'] = thisTabData[0].field('equinox')
 
+    # time
+    dateObs = thisTabData.field('date-obs')
+    result['jdobs'] = apTime.Time(dateObs,format='isot',scale='utc').jd
+    # date-obs from first row
+    result['date-obs'] = dateObs[0]
+
     if chanStop is None or chanStop >= nchan:
         chanStop = nchan-1
     result["chanStart"] = chanStart
     result["chanStop"] = chanStop
     result["nchan"] = nchan
 
-    # replace NaNs in the raw data with 0s
-    result["rawdata"] = numpy.nan_to_num(thisTabData.field('data')[:,chanStart:(chanStop+1)])
+    nanDataMask = None
+    if getdata:
+        # replace NaNs in the raw data with 0s
+        # nan_to_num also works, but doing this allows the isnan result to be reused in setting
+        # the weights because everyone once in a while the data values really are 0.0
+        # chan selection happens here
+        result["data"] = thisTabData.field('data')[:,chanStart:(chanStop+1)]
+        nanDataMask = numpy.isnan(result["data"])
+        result["data"][nanDataMask] = 0.0
+        # do any channel averaging here - should this be done before masking on NaN?
+        if average is not None:
+            (result["data"],result["freq"]) = boxcar(result["data"],result["freq"],average)
+
+    else:
+        result["data"] = None
 
     # for now, scalar weights.  Eventually spectral weights - which will need to know
     # where the NaNs were in the above
     texp = thisTabData.field('exposure')
     tsys = thisTabData.field('tsys')
     # using nan_to_num here sets wt to 0 if there are tsys=0.0 values in the table
-    result["wt"] = numpy.nan_to_num(texp/(tsys*tsys))
-    # to match current idlToSdfits behavior ..
-    #     set wt to 0.0 where any of the values in the related spectrum were nan (now 0.0)
-    #     eventually will have per-channel wts and this step will be different
-    result["wt"][numpy.any(result["rawdata"]==0.0,axis=1)] = 0.0
+    # normalize to Tsys = 25.0
+    relTsys = tsys/25.0
+    result["wt"] = numpy.nan_to_num(texp/(relTsys*relTsys))
+
+    if getdata:
+        # to match current idlToSdfits behavior ..
+        #     set wt to 0.0 where any of the values in the related spectrum were nan (now 0.0)
+        #     eventually will have per-channel wts and this step will be different
+        result["wt"][numpy.any(nanDataMask==True,axis=1)] = 0.0
+
+    # tsys flagging
+    result["ntsysflag"] = 0
+    if mintsys is not None:
+        tsysMask = tsys < mintsys
+        nMinFlagged = tsysMask.sum()
+        if nMinFlagged > 0:
+            result["ntsysflag"] += nMinFlagged
+            result["wt"][tsysMask] = 0.0
+
+    # tsys flagging
+    if maxtsys is not None:
+        tsysMask = tsys > maxtsys
+        nMaxFlagged = tsysMask.sum()
+        if nMaxFlagged > 0:
+            result["ntsysflag"] += nMaxFlagged
+            result["wt"][tsysMask] = 0.0
 
     # column values relevant to the frequency axis
     # assumes axis is FREQ
@@ -128,17 +176,18 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, verbose=
     crp1 = thisTabData.field('crpix1')
     vframe = thisTabData.field('vframe')
     frest = thisTabData.field('restfreq')
-    beta = numpy.sqrt((constants.c+vframe)/(constants.c-vframe))
+    beta = vframe/constants.c
+    doppler = numpy.sqrt((1.0+beta)/(1.0-beta))
 
     # full frequency axis in doppler tracked frame from first row
-    indx = numpy.arange(result["rawdata"].shape[1])+1.0+chanStart
-    freq = (crv1[0]+cd1[0]*(indx-crp1[0]))*beta[0]
+    # FITS counts from 1, this indx refers to the original axis, before chan selection
+    indx = numpy.arange(chanStop-chanStart+1)+1.0+chanStart
+    freq = (crv1[0]+cd1[0]*(indx-crp1[0]))*doppler[0]
     result["freq"] = freq
     result["restfreq"] = frest[0]
-
-    # do any channel averaging here
-    if average is not None:
-        (result["rawdata"],result["freq"]) = boxcar(result["rawdata"],result["freq"],average)
+    result["doppler"] = doppler
+    # bandwidth in sky frame of selected channels, from the first row
+    result["bandwidth"] = abs(cd1[0])*len(indx)
 
     # decompose VELDEF into velocity definition (still call this veldef)
     # and specsys - appropriate for current WCS spectral coordinate convention.
@@ -169,7 +218,7 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, verbose=
     result['source'] = thisTabData[0].field('object')
 
     # data units, assumes all rows have the same as the first one
-    # also assumes DATA is column 7
+    # also assumes DATA is column 7    
     result['units'] = thisTabData[0].field('tunit7')
     # currently the pipeline sets this to the argument value of the
     # requested calibration units, e.g. Ta, Tmb, Jy.  This should
@@ -182,8 +231,9 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, verbose=
         result['units'] = 'K'
 
     # additional information - this is what idlToSdfits supplies
+    # all of these come from just the first row - no check to see if they vary in the file
     # green bank convention, try keywords first, then column, then give up
-    keys = ["TELESCOP","INSTRUME","OBSERVER"]
+    keys = ["TELESCOP","FRONTEND","OBSERVER","PROJID","SITELONG","SITELAT","SITEELEV","FEED"]
     for key in keys:
         # all these values are strings
         value = "unknown"
@@ -194,9 +244,6 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, verbose=
                 value = thisFits[1].data[0].field(key)
         result[key.lower()] = value
 
-    # date-obs from first row
-    result['date-obs'] = thisTabData[0].field('date-obs')
-    
     thisFits.close()
 
     return result

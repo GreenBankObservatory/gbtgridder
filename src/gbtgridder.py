@@ -52,6 +52,10 @@ def read_command_line(argv):
                         help="Optionally average channels, keeping only nchan/naverage channels")
     parser.add_argument("-s","--scans", type=str, 
                         help="Only use data from these scans.  comma separated list or <start>:<end> range syntax or combination of both")
+    parser.add_argument("-m","--maxtsys", type=float,
+                        help="max Tsys value to use")
+    parser.add_argument("-z","--mintsys", type=float,
+                        help="min Tsys value to use")
     parser.add_argument("SDFITSfiles", type=str, nargs="+",
                         help="The calibrated SDFITS files to use.") 
     parser.add_argument("--clobber", default=False, action="store_true",
@@ -271,6 +275,9 @@ def gbtgridder(args):
 
     average = args.average
 
+    minTsys = args.mintsys
+    maxTsys = args.maxtsys
+
     scanlist = args.scans
     if args.scans is not None:
         scanlist = parse_scans(scanlist)
@@ -292,7 +299,7 @@ def gbtgridder(args):
     xsky = None
     ysky = None
     wt = None
-    rawdata = None
+    data = None
     nchan = None
     frest = None
     faxis = None
@@ -306,9 +313,10 @@ def gbtgridder(args):
     equinox = None
     observer = None
     telescop = None
-    instrume = None
+    frontend = None
     dateObs = None
     uniqueScans = None
+    ntsysFlagCount = 0
     outputFiles = {}
 
     if verbose > 3:
@@ -317,7 +325,8 @@ def gbtgridder(args):
         try:
             if verbose > 3:
                 print "   ",thisFile
-            dataRecord = get_data(thisFile,nchan,chanStart,chanStop,average,scanlist,verbose=verbose)
+            dataRecord = get_data(thisFile,nchan,chanStart,chanStop,average,scanlist,
+                                  minTsys,maxTsys,verbose=verbose)
             if dataRecord is None:
                 # there was a problem that should not be recovered from
                 # reported by get_data, no additional reporting necessary here
@@ -331,7 +340,7 @@ def gbtgridder(args):
                 xsky = dataRecord["xsky"]
                 ysky = dataRecord["ysky"]
                 wt = dataRecord["wt"]
-                rawdata = dataRecord["rawdata"]
+                data = dataRecord["data"]
                 nchan = dataRecord["nchan"]
                 chanStart = dataRecord["chanStart"]
                 chanStop = dataRecord["chanStop"]
@@ -346,7 +355,7 @@ def gbtgridder(args):
                 radesys = dataRecord["radesys"]
                 equinox = dataRecord["equinox"]
                 telescop = dataRecord["telescop"]
-                instrume = dataRecord["instrume"]
+                frontend = dataRecord["frontend"]
                 observer = dataRecord["observer"]
                 dateObs = dataRecord["date-obs"]
                 uniqueScans = numpy.unique(dataRecord["scans"])
@@ -364,8 +373,10 @@ def gbtgridder(args):
                 xsky = numpy.append(xsky,dataRecord["xsky"])
                 ysky = numpy.append(ysky,dataRecord["ysky"])
                 wt = numpy.append(wt,dataRecord["wt"])
-                rawdata = numpy.append(rawdata,dataRecord["rawdata"],axis=0)
+                data = numpy.append(data,dataRecord["data"],axis=0)
                 uniqueScans = numpy.unique(numpy.append(uniqueScans,dataRecord["scans"]))
+
+            ntsysFlagCount += dataRecord["ntsysflag"]
 
         except(AssertionError):
             if verbose > 1:
@@ -544,6 +555,22 @@ def gbtgridder(args):
     gauss_fwhm = (1.5*pix_scale)*2.354/math.sqrt(2.0)
 
     if verbose > 4:
+        print "Data summary ..."
+        print "   scans : ", format_scans(uniqueScans)
+        print "   channels : %d:%d" % (chanStart, chanStop)
+        if args.mintsys is None and args.maxtsys is None:
+            print "   no tsys selection"
+        else:
+            tsysRange = ""
+            if args.mintsys is not None:
+                tsysRange += "%f" % args.mintsys
+            tsysRange += ":"
+            if args.maxtsys is not None:
+                tsysRange += "%f" % args.maxtsys
+            print "   tsys range : ", tsysRange
+            print "   flagged outside of tsys range : ", ntsysFlagCount
+        print "   spectra to grid : ", (wt != 0.0).sum()
+        print ""
         print "Map info ..."
         print "   beam_fwhm : ", beam_fwhm, "(", beam_fwhm*60.0*60.0, " arcsec)"
         print "   pix_scale : ", pix_scale, "(", pix_scale*60.0*60.0, " arcsec)"
@@ -557,12 +584,9 @@ def gbtgridder(args):
         print "    ref Ypix : ", refYpix
         print "          f0 : ", faxis[0]
         print "    delta(f) : ", faxis[1]-faxis[0]
-        print "       nchan : ", nchan
-        print "       nfreq : ", len(faxis)
-        print "   N to grid : ", len(xsky)
+        print "      nchan  : ", len(faxis)
         print "      source : ", source
         print " frest (MHz) : ", frest/1.e6
-        print "       scans : ", format_scans(uniqueScans)
 
     # build the initial header object
     # only enough to build the WCS object from it + BEAM size info
@@ -579,7 +603,7 @@ def gbtgridder(args):
         print "Gridding"
 
     try:
-        (cube, weight, beam_fwhm) = grid_otf(rawdata, xsky, ysky, wcsObj, len(faxis), xsize, ysize, pix_scale, weight=wt, beam_fwhm=beam_fwhm, kern=args.kernel, gauss_fwhm=gauss_fwhm, verbose=verbose)
+        (cube, weight, beam_fwhm) = grid_otf(data, xsky, ysky, wcsObj, len(faxis), xsize, ysize, pix_scale, weight=wt, beam_fwhm=beam_fwhm, kern=args.kernel, gauss_fwhm=gauss_fwhm, verbose=verbose)
     except MemoryError:
         if verbose > 1:
             print "Not enough memory to create the image cubes necessary to grid this data"
@@ -603,7 +627,7 @@ def gbtgridder(args):
     # start writing stuff to disk
     # add additional information to the header
     hdr['telescop'] = telescop
-    hdr['instrume'] = instrume
+    hdr['instrume'] = frontend
     hdr['observer'] = observer
     hdr['date-obs'] = (dateObs,'Observed time of first spectra gridded')
     hdr['date-map'] = (time.strftime("%Y-%m-%dT%H:%M:%S",time.gmtime()),"Created by gbtgridder")
@@ -661,6 +685,15 @@ def gbtgridder(args):
         hdr.add_history("gbtgridder output: "+args.output)
     if args.scans is not None:
         hdr.add_history("gbtgridder scans: "+args.scans)
+    if args.mintsys is None and args.maxtsys is None:
+        hdr.add_history("gbtgridder no tsys selection")
+    else:
+        if args.mintsys is not None:
+            hdr.add_history("gbtgridder mintsys: %f" % args.mintsys)
+        if args.maxtsys is not None:
+            hdr.add_history("gbtgridder maxtsys: %f" % args.maxtsys)
+        hdr.add_history("gbtgridder N spectra outside tsys range: %d" % ntsysFlagCount)
+ 
     hdr.add_history("gbtgridder sdfits files ...")
     for thisFile in args.SDFITSfiles:
         # protect against long file names - don't use more than one comment row to
@@ -759,6 +792,18 @@ if __name__ == '__main__':
     if args.restfreq is not None and args.restfreq <= 0:
         print "restfreq must be > 0"
         sys.exit(-1)
+
+    if args.mintsys is not None and args.mintsys < 0:
+        print "mintsys must be > 0"
+        sys.exit(1)
+
+    if args.maxtsys is not None and args.maxtsys < 0:
+        print "maxtsys must be > 0"
+        sys.exit(1)
+
+    if args.maxtsys is not None and args.mintsys is not None and args.maxtsys <= args.mintsys:
+        print "maxtsys must be > mintsys"
+        sys.exit(1)
 
     try:
         gbtgridder(args)
