@@ -36,7 +36,7 @@ import math
 import time
 import warnings
 
-gbtgridderVersion = "0.1"
+gbtgridderVersion = "0.2"
 
 def read_command_line(argv):
     """Read options from the command line."""
