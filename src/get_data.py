@@ -122,6 +122,24 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
     result["nchan"] = nchan
 
     nanDataMask = None
+    
+    # need the frequency axis information first
+    # column values relevant to the frequency axis
+    # assumes axis is FREQ
+    crv1 = thisTabData.field('crval1')
+    cd1 = thisTabData.field('cdelt1')
+    crp1 = thisTabData.field('crpix1')
+    vframe = thisTabData.field('vframe')
+    frest = thisTabData.field('restfreq')
+    beta = vframe/constants.c
+    doppler = numpy.sqrt((1.0+beta)/(1.0-beta))
+
+    # full frequency axis in doppler tracked frame from first row
+    # FITS counts from 1, this indx refers to the original axis, before chan selection
+    indx = numpy.arange(chanStop-chanStart+1)+1.0+chanStart
+    freq = (crv1[0]+cd1[0]*(indx-crp1[0]))*doppler[0]
+    result["freq"] = freq
+
     if getdata:
         # replace NaNs in the raw data with 0s
         # nan_to_num also works, but doing this allows the isnan result to be reused in setting
@@ -169,21 +187,6 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
             result["ntsysflag"] += nMaxFlagged
             result["wt"][tsysMask] = 0.0
 
-    # column values relevant to the frequency axis
-    # assumes axis is FREQ
-    crv1 = thisTabData.field('crval1')
-    cd1 = thisTabData.field('cdelt1')
-    crp1 = thisTabData.field('crpix1')
-    vframe = thisTabData.field('vframe')
-    frest = thisTabData.field('restfreq')
-    beta = vframe/constants.c
-    doppler = numpy.sqrt((1.0+beta)/(1.0-beta))
-
-    # full frequency axis in doppler tracked frame from first row
-    # FITS counts from 1, this indx refers to the original axis, before chan selection
-    indx = numpy.arange(chanStop-chanStart+1)+1.0+chanStart
-    freq = (crv1[0]+cd1[0]*(indx-crp1[0]))*doppler[0]
-    result["freq"] = freq
     result["restfreq"] = frest[0]
     result["doppler"] = doppler
     # bandwidth in sky frame of selected channels, from the first row
