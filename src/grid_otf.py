@@ -226,6 +226,7 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
     ny = cubeShape[1]
 
     unitSpectrum = numpy.ones((1,nchan))
+    wtSpectrum = numpy.zeros(nchan)
 
     counterMax = "%d" % nx
     counterFormat = "Row %%%dd out of %s" % (len(counterMax),counterMax)
@@ -250,7 +251,6 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
 
             keep_ct = len(keep)
 
-            # I think the distiction here between > 1 and == 1 doesn't matter for python
             if keep_ct > 1:
            
                 if kern == "nearest":
@@ -272,25 +272,42 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
 
                     #             GET A VECTOR OF NORMALIZED WEIGHTS
                     combined_weight = conv_fn * weight[keep]
-                    total_wt = combined_weight.sum()
-                    # the normalization should happen at the end if this is a re-entrant routine
-                    # adding on to an existing image and weights.
 
-                    # do nothing if total_wt is <= 0.0
-                    if total_wt > 0.0:
+                    # only go on if there's something there to grid
+                    if combined_weight.sum() > 0.0:
 
-                        combined_weight /= total_wt
-
-                        # again, something clever needs to be done with nan here
+                        # reshape to 2D
                         combined_weight.shape = (len(combined_weight),1)
+                        # dot product with unitSpectrum to get 2D of same shape as
+                        # data to be gridded 
                         wtMatrix = combined_weight.dot(unitSpectrum)
-                        spectrum = (data[keep,:] * wtMatrix).sum(axis=0)
+                        # the chunk of data to be gridded here
+                        spectrumMatrix = data[keep,:]
+                        # the location of any NaNs
+                        nanMask = numpy.isnan(spectrumMatrix)
+                        # and set those locations to 0.0 in both the data and weights
+                        wtMatrix[nanMask] = 0.0
 
-                        #             UPDATE THE DATA AND WEIGHTING CUBES
-                        data_cube[:,j,i] = spectrum
-                        weight_cube[:,j,i] = total_wt*unitSpectrum
+                        # and again, only go on if there's something there to grid
+                        if wtMatrix.sum() > 0.0:
+                            spectrumMatrix[nanMask] = 0.0
+                            # multiply by data by weights
+                            spectrumMatrix *= wtMatrix
+                            # sum and normalize spectrum to be inserted into data
+                            wtSpectrum = wtMatrix.sum(axis=0)
+                            spectrum = spectrumMatrix.sum(axis=0)
+
+                            # the normalization should happen at the end if this is a re-entrant routine
+                            # adding on to an existing image and weights.
+                            spectrum /= wtSpectrum
+
+                            # insert into the matrix
+                            data_cube[:,j,i] = spectrum
+                            weight_cube[:,j,i] = wtSpectrum
 
             #       HANDLE THE CASE OF ONLY ONE DATA POINT
+            # this does the same as the above code, but with fewer steps since it's known
+            # that there is only one spectrum contributing to this grid point
             #       ignore data with a weight <= 0.0
             if keep_ct == 1 and weight[keep[0]] > 0.0:
                 if kern == "nearest":
@@ -302,8 +319,14 @@ def grid_otf(data, xsky, ysky, wcsObj, nchan, xsize, ysize, pix_scale, weight=No
                         conv_fn = interp_pre_conv_fn(pix_dist_sqrd[keep[0]] / pre_delta_pix_sqrd)
 
                 if (conv_fn > cutoff_conv_fn):
-                    data_cube[:,j,i] = data[keep[0],:]
-                    weight_cube[:,j,i] = conv_fn*weight[keep[0]]
+                    thisSpectrum = data[keep[0],:]
+                    wtSpectrum[:] = weight[keep[0]]
+                    nanMask = numpy.isnan(thisSpectrum)
+                    wtSpectrum[nanMask] = 0.0
+                    if wtSpectrum.sum() > 0.0:
+                        thisSpectrum[nanMask] = 0.0
+                        data_cube[:,j,i] = thisSpectrum
+                        weight_cube[:,j,i] = conv_fn*wtSpectrum
 
     if verbose > 3:
         # finish the counter so output is back to it's usual place

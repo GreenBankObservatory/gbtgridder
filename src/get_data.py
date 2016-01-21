@@ -121,8 +121,6 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
     result["chanStop"] = chanStop
     result["nchan"] = nchan
 
-    nanDataMask = None
-    
     # need the frequency axis information first
     # column values relevant to the frequency axis
     # assumes axis is FREQ
@@ -141,14 +139,9 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
     result["freq"] = freq
 
     if getdata:
-        # replace NaNs in the raw data with 0s
-        # nan_to_num also works, but doing this allows the isnan result to be reused in setting
-        # the weights because everyone once in a while the data values really are 0.0
         # chan selection happens here
         result["data"] = thisTabData.field('data')[:,chanStart:(chanStop+1)]
-        nanDataMask = numpy.isnan(result["data"])
-        result["data"][nanDataMask] = 0.0
-        # do any channel averaging here - should this be done before masking on NaN?
+        # do any channel averaging here
         if average is not None:
             (result["data"],result["freq"]) = boxcar(result["data"],result["freq"],average)
 
@@ -163,12 +156,6 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
     # normalize to Tsys = 25.0
     relTsys = tsys/25.0
     result["wt"] = numpy.nan_to_num(texp/(relTsys*relTsys))
-
-    if getdata:
-        # to match current idlToSdfits behavior ..
-        #     set wt to 0.0 where any of the values in the related spectrum were nan (now 0.0)
-        #     eventually will have per-channel wts and this step will be different
-        result["wt"][numpy.any(nanDataMask==True,axis=1)] = 0.0
 
     # tsys flagging
     result["ntsysflag"] = 0

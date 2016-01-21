@@ -36,7 +36,7 @@ import math
 import time
 import warnings
 
-gbtgridderVersion = "0.2"
+gbtgridderVersion = "0.5"
 
 def read_command_line(argv):
     """Read options from the command line."""
@@ -626,12 +626,15 @@ def gbtgridder(args):
 
     # start writing stuff to disk
     # add additional information to the header
+    hdr['object'] = source
     hdr['telescop'] = telescop
     hdr['instrume'] = frontend
     hdr['observer'] = observer
     hdr['date-obs'] = (dateObs,'Observed time of first spectra gridded')
     hdr['date-map'] = (time.strftime("%Y-%m-%dT%H:%M:%S",time.gmtime()),"Created by gbtgridder")
-    hdr['data'] = time.strftime("%Y-%m-%d",time.gmtime())
+    hdr['date'] = time.strftime("%Y-%m-%d",time.gmtime())
+    hdr['obsra'] = refXsky
+    hdr['obsdec'] = centerYsky
 
     if args.kernel == 'gauss':
         hdr.add_comment('Convolved with Gaussian convolution function.')
@@ -715,9 +718,8 @@ def gbtgridder(args):
             print "Writing weight cube"
         wtHdr = hdr.copy()
         wtHdr['BUNIT'] = ('weight','Weight cube')  # change from K -> weight
-        if nanCube is not True:
-            wtHdr['DATAMAX'] = numpy.nanmax(weight)
-            wtHdr['DATAMIN'] = numpy.nanmin(weight)
+        wtHdr['DATAMAX'] = numpy.nanmax(weight)
+        wtHdr['DATAMIN'] = numpy.nanmin(weight)
 
         phdu = pyfits.PrimaryHDU(weight, wtHdr)
         phdu.writeto(outputFiles["weight"])
@@ -728,16 +730,21 @@ def gbtgridder(args):
         # "cont" map, sum along the spectral axis
         # SQUASH does a weighted average
         # As implemented here, this is equivalent if there are equal weights along the spectral axis
-        cont_map = numpy.average(cube,axis=1)
+        # doing a weighted average using numpy.average and ignoring NaNs would be tricky here
+        # some slices may be all NaNs (but an entire cube of NaNs was tested for earlier)
+        # this suppresses that warning
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            cont_map = numpy.nanmean(cube,axis=1)
+
         contHdr = hdr.copy()
         # AIPS just changes the channel count on the frequency axis, leaving everything else the same
         contHdr['NAXIS3'] = 1
         # restore the now-degenerate frequency axis to the shape
         cont_map.shape = (1,)+cont_map.shape
         contHdr.add_history('gbtgridder: average of cube along spectral axis')
-        if nanCube is not True:
-            contHdr['DATAMAX'] = numpy.nanmax(cont_map)
-            contHdr['DATAMIN'] = numpy.nanmin(cont_map)
+        contHdr['DATAMAX'] = numpy.nanmax(cont_map)
+        contHdr['DATAMIN'] = numpy.nanmin(cont_map)
         phdu = pyfits.PrimaryHDU(cont_map, contHdr)
         phdu.writeto(outputFiles["cont"])
 
@@ -756,9 +763,8 @@ def gbtgridder(args):
         avg_map = numpy.average(cube[:,baseIndx,:,:],axis=1)
         cube -= avg_map
         cube[:,0,:,:] = avg_map
-        if nanCube is not True:
-            hdr['DATAMAX'] = numpy.nanmax(cube)
-            hdr['DATAMIN'] = numpy.nanmin(cube)
+        hdr['DATAMAX'] = numpy.nanmax(cube)
+        hdr['DATAMIN'] = numpy.nanmin(cube)
         hdr.add_history('gbtgridder: subtracted an average over baseline region on freq axis')
         hdr.add_history('gbtgridder: average over channels: %d:%d and %d:%d' % tuple(baseRegion))
         hdr.add_history('gbtgridder: channel 0 replaced with averages')
