@@ -109,6 +109,17 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
     result['radesys'] = thisTabData[0].field('radesys')
     result['equinox'] = thisTabData[0].field('equinox')
 
+    # watch for ???? issues in [xy]ctype - caused by missing GO FITS file as seen by sdfits
+    if result['xctype'] == '????' or result['yctype'] == '????':
+        if verbose > 2:
+            print "Warning: first row in %s has unknown sky coordinate type probably due to missing GO fits file" % sdfitsFile
+            print "Warning: assuming J2000 RA/DEC coordinates"
+            print "Warning: the RESTFREQ value and the related ALTRPIX value in the output cubes are probably also wrong."
+        result['xctype'] = 'RA'
+        result['yctype'] = 'DEC'
+        result['radesys'] = 'FK5'
+        result['equinox'] = 2000.0
+
     # time
     dateObs = thisTabData.field('date-obs')
     result['jdobs'] = apTime.Time(dateObs,format='isot',scale='utc').jd
