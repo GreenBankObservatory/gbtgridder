@@ -383,6 +383,12 @@ def gbtgridder(args):
                 print "There was an unexpected problem processing %s" % thisFile
             raise
 
+    if xsky is None:
+        if verbose > 1:
+            print "No data was found in the input SDFITS files given the data selection options used."
+            print "Can not continue."
+        return
+
     if args.restfreq is not None:
         # Use user supplied rest frequency, conver to Hz
         frest = args.restfreq * 1.0e6
