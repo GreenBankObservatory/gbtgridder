@@ -447,6 +447,41 @@ def gbtgridder(args):
     # this is set when needed, but used in multiple places
     nonZeroXY = None
 
+    # need to watch for coordinates near 0/360  OR near +- 180
+    # this technique will miss the difficult case of a mixture of +- 180 and 0:360 X coordinates
+    # assumes that Y doesn't have this problem, likely is +- 90
+    xskyMin = xsky[nonZeroXY].min()
+    xskyMax = xsky[nonZeroXY].max()
+    newXsky = None
+
+    if (xskyMin > 0.0) :
+        # all coordinates > 0, watch for 0/360 coordinates
+        if (xskyMax - xskyMin) > 180.0:
+            # probably a problem, subtract 360 for coordinates > 180.0 so that they run from -180 to +180 continuously through 0.0
+            rangeBefore = xskyMax - xskyMin
+            xskyMask = xsky>180.0
+            newXsky = xsky.copy()
+            newXsky[xskyMask] -= 360.0
+    else:
+        # some coordinates are < 0, watch for +- 180.0
+        # same criteria
+        if (xskyMax - xskyMin) > 180.0:
+            # probably a problem, add 360 to all negative coordinates so they run from 0 through 360
+            rangeBefore = xskyMax - xskyMin
+            xskyMask = xsky<0.0
+            newXsky = xsky.copy()
+            newXsky[xskyMask] += 360.0
+
+    if newXsky is not None:
+        # see if that's an improvemenet
+        newXskyMin = newXsky[nonZeroXY].min()
+        newXskyMax = newXsky[nonZeroXY].max()
+        if (newXskyMax-newXskyMin) < rangeBefore:
+            # this is an improvement, use it
+            xsky = newXsky.copy()
+            xskyMin = newXskyMin
+            xskyMax = newXskyMax
+
     if refXsky is None:
         if args.mapcenter is not None:
             # use user-supplied value
@@ -485,6 +520,8 @@ def gbtgridder(args):
         else:
             # nonZeroXY MUST have already been set above to get here
             # do not check that it's set or set it here
+            # assume that the Y coordinate is +- 90 and there's no problem
+            # with 360/0 or +- 180 confusion as there may be with the X coordinate
             refYsky = round(numpy.mean(ysky[nonZeroXY])*3600.0)/3600.0
 
     if pix_scale is None:
@@ -515,8 +552,8 @@ def gbtgridder(args):
                 # except when there is no valid antenna pointing for that scan.
                 nonZeroXY = (xsky!=0.0) & (ysky!=0.0)
                 
-            # need to worry about possible problems near 0/360 or +- 180?
-            xRange = xsky[nonZeroXY].max()-xsky[nonZeroXY].min()
+            
+            xRange = xskyMax-xskyMin
             yRange = ysky[nonZeroXY].max()-ysky[nonZeroXY].min()
 
             # image size, idlToSdfits method
