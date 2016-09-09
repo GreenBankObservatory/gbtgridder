@@ -90,7 +90,9 @@ def get_cube_info(cubeFile, verbose=4):
             if verbose > 1:
                 print "1st and/or 2nd axes of %s are inverted from expected direction" % cubeFile
             return result
-        if abs(cdelt1) != cdelt2:
+        if (abs(cdelt1)-abs(cdelt2)) > 0.01/3600.0:
+            # can't check for exact equality because of rounding errors, the above is close enough.
+            # abs(cdelt2) is the one that's actually used (should already be positive, just making sure
             if verbose > 1:
                 print "Pixel size is not the same on axis 1 and 2 in %s" % cubeFile
             return result
@@ -118,7 +120,7 @@ def get_cube_info(cubeFile, verbose=4):
         result["yrefPix"] = crpix2
         result["xsize"] = xsize
         result["ysize"] = ysize
-        result["pix_scale"] = cdelt2
+        result["pix_scale"] = abs(cdelt2)
         result["proj"] = proj
         result["xtype"] = ctype1[:4].split('-')[0]
         result["ytype"] = ctype2[:4].split('-')[0]

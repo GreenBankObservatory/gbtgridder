@@ -444,8 +444,25 @@ def gbtgridder(args):
                 refYpix = cubeInfo["yrefPix"]
 
 
-    # this is set when needed, but used in multiple places
+    # this is needed ONLY when the cube center and size are not given 
+    # on the command line in one way or another
+    centerUnknown = ((refXsky is None or refYsky is None) and args.mapcenter is None)
+    sizeUnknown = ((xsize is None or ysize is None) and args.size is None)
     nonZeroXY = None
+    if centerUnknown or sizeUnknown:
+        # this masks out antenna positions exactly equal to 0.0 - unlikely to happen
+        # except when there is no valid antenna pointing for that scan.
+        nonZeroXY = (xsky!=0.0) & (ysky!=0.0)
+
+        # watch for the pathological case where there is no good antenna data
+        # which can not be gridded at all
+        if numpy.all(nonZeroXY == False):
+            # always print this out, independent of verbosity level
+            print "All antenna pointings are exactly equal to 0.0, can not grid this data"
+            return
+
+        if verbose > 3 and numpy.any(nonZeroXY == False):
+            print "%d spectra will be excluded because the antenna pointing is exactly equal to 0.0 on both axes - unlikely to be a valid position" % (nonZeroXY == False).sum()
 
     # need to watch for coordinates near 0/360  OR near +- 180
     # this technique will miss the difficult case of a mixture of +- 180 and 0:360 X coordinates
@@ -488,23 +505,9 @@ def gbtgridder(args):
             refXsky = args.mapcenter[0]
         else:
             # set the reference sky position using the mean x and y positions
-            # need to worry about points clearly off the grid
+            # still need to worry about points clearly off the grid
             #   e.g. a reference position incorrectly included in the data to be gridded.
-
-            if nonZeroXY is None:
-                # this masks out antenna positions exactly equal to 0.0 - unlikely to happen
-                # except when there is no valid antenna pointing for that scan.
-                nonZeroXY = (xsky!=0.0) & (ysky!=0.0)
-
-            # watch for the pathological case where there is no good antenna data
-            # which can not be gridded at all
-            if numpy.all(nonZeroXY == False):
-                # always print this out, independent of verbosity level
-                print "All antenna pointings are exactly equal to 0.0, can not grid this data"
-                return
-
-            if verbose > 3 and numpy.any(nonZeroXY == False):
-                print "%d spectra will be excluded because the antenna pointing is exactly equal to 0.0 on both axes - unlikely to be a valid position" % (nonZeroXY == False).sum()
+            #   not sure what an appropriate heuristic for that is
 
             # idlToSdfits rounds the center from the mean to the nearest second/arcsecond
             # for RA or HA, divide by 15
@@ -546,13 +549,6 @@ def gbtgridder(args):
             xsize = args.size[0]
             ysize = args.size[1]
         else:
-            if nonZeroXY is None:
-                # only do this once
-                # this masks out antenna positions exactly equal to 0.0 - unlikely to happen
-                # except when there is no valid antenna pointing for that scan.
-                nonZeroXY = (xsky!=0.0) & (ysky!=0.0)
-                
-            
             xRange = xskyMax-xskyMin
             yRange = ysky[nonZeroXY].max()-ysky[nonZeroXY].min()
 
