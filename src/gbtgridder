@@ -9,7 +9,7 @@ source /home/gbt7/pipeline/gridder/bin/activate
 
 STAT_FILE="/home/scratch/pipeline/gridder.log"
 if [ -w $STAT_FILE ]; then
-    echo `whoami`,`date`,`uname -n`,`pwd`,$fullpath $* >> $STAT_FILE
+    export LC_TIME="en_US.UTF-8"; echo `whoami`,`date`,`uname -n`,`pwd`,$fullpath $* >> $STAT_FILE
 fi
 
 PYTHONPATH=${pathdir}
