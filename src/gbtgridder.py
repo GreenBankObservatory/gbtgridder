@@ -81,6 +81,8 @@ def read_command_line(argv):
                         " Default is to construct the output cube using values appropriate for"
                         " gridding all of the input data.  Use of --clonecube overrides any use"
                         " of --size, --pixelwidth, --mapcenter and --proj arguments.")
+    parser.add_argument("--eqweight",default=False, action="store_true",
+                        help="Set this to use equal data weights for all spectra") 
     parser.add_argument("--noweight", default=False, action="store_true",
                         help="Set this to turn off production of the output weight cube")
     parser.add_argument("--noline", default=False, action="store_true",
@@ -393,6 +395,14 @@ def gbtgridder(args):
         # Use user supplied rest frequency, conver to Hz
         frest = args.restfreq * 1.0e6
 
+    # grid_otf.py already sets the weights to 1 if wt=None
+    # Added a flag here called --eqweight 
+    print args.eqweight
+    if args.eqweight is True: 
+        #if verbose > 1:
+        #    print "Setting all weights to 1."
+        wt = None
+
     # characterize the center of the image
 
     # the beam_fwhm is needed in various places
@@ -608,7 +618,13 @@ def gbtgridder(args):
                 tsysRange += "%f" % args.maxtsys
             print "   tsys range : ", tsysRange
             print "   flagged outside of tsys range : ", ntsysFlagCount
-        print "   spectra to grid : ", (wt != 0.0).sum()
+        # number of spectra actually gridded if wt is being used
+        if wt is not None:
+            print "   spectra to grid : ", (wt != 0.0).sum()
+        else:
+            print "   spectra to grid : ", len(xsky)
+            print "   using equal weights"
+
         print ""
         print "Map info ..."
         print "   beam_fwhm : ", beam_fwhm, "(", beam_fwhm*60.0*60.0, " arcsec)"
