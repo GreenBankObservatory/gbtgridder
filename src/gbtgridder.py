@@ -397,7 +397,7 @@ def gbtgridder(args):
 
     # grid_otf.py already sets the weights to 1 if wt=None
     # Added a flag here called --eqweight 
-    print args.eqweight
+    # print args.eqweight
     if args.eqweight is True: 
         #if verbose > 1:
         #    print "Setting all weights to 1."
