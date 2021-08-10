@@ -389,6 +389,10 @@ def gbtgridder(args):
     pix_scale = None
     nx = None
     ny = None
+    refXpix=None
+    refYpix=None
+    refXsky = args.mapcenter[0]
+    refYsky = args.mapcenter[1]
 
     if args.clonecube is not None:
         # use the cloned values
@@ -455,6 +459,27 @@ def gbtgridder(args):
         gauss_fwhm = 2.52 * 2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm # removed 2.52 before sqrt and it resolved
     else: gauss_fwhm = 0.0 # don't need this value for pill box
 
+    # used only for header purposes
+    centerYsky = refYsky
+    if refXpix is None or refYpix is None:
+        # both should be set together or unset together
+        if args.proj == "TAN":
+            # this is how Adam does things in his IDL code
+            # the reference pixel is in the center
+            refXpix = nx/2.0
+            refYpix = ny/2.0
+        else:
+            # must be SFL
+            # this is how idlToSdfits+AIPS does things for GLS==SFL
+            refXpix = nx/2.0
+            # for the Y axis is, this is where we want refYsky to be
+            centerYpix = ny/2.0 + 1.0
+            # but by definition, refYsky must be 0.0, set set refYpix
+            # so that the current refYsky ends up at centerYpix
+            refYpix = centerYpix - refYsky/pix_scale
+            # then reset refYsky
+            refYsky = 0.0
+
     if verbose > 4:
         print ("Data summary ...")
         print ("   scans : ", format_scans(uniqueScans))
@@ -481,8 +506,13 @@ def gbtgridder(args):
         print ("   beam_fwhm : ", beam_fwhm, "(", beam_fwhm*60.0*60.0, " arcsec)")
         print ("   pix_scale : ", pix_scale, "(", pix_scale*60.0*60.0, " arcsec)")
         print ("  gauss fwhm : ", gauss_fwhm, "(", gauss_fwhm*60.0*60.0, " arcsec)")
+        print ("    ref Xsky : ", refXsky)
+        print ("    ref Ysky : ", refYsky)
+        print (" center Ysky : ", centerYsky)
         print ("       xsize : ", nx)
         print ("       ysize : ", ny)
+        print ("    ref Xpix : ", refXpix)
+        print ("    ref Ypix : ", refYpix)
         print ("          f0 : ", faxis[0])
         print ("    delta(f) : ", faxis[1]-faxis[0])
         print ("  num. chan  : ", len(faxis))
@@ -490,7 +520,7 @@ def gbtgridder(args):
         print (" frest (MHz) : ", rest_freq/1.e6)
 
     # build the initial header object
-    hdr = make_header(glong_start_hdr, glat_start, nx, ny, pix_scale, 1.0, 1.0, coordType, radesys, equinox, rest_freq, faxis, beam_fwhm, veldef, specsys, proj=args.proj, verbose=verbose)
+    hdr = make_header(refXsky, refYsky, nx, ny, pix_scale, refXpix, refYpix, coordType, radesys, equinox, rest_freq, faxis, beam_fwhm, veldef, specsys, proj=args.proj, verbose=verbose)
     
     #converting diameter to telescope string for print out
     if args.diameter==100:telescope='GBT'
@@ -553,6 +583,8 @@ def gbtgridder(args):
     hdr['date-obs'] = (dateObs,'Observed time of first spectra gridded')
     hdr['date-map'] = (time.strftime("%Y-%m-%dT%H:%M:%S",time.gmtime()),"Created by gbtgridder")
     hdr['date'] = time.strftime("%Y-%m-%d",time.gmtime())
+    hdr['obsra'] = refXsky
+    hdr['obsdec'] = centerYsky
 
     if args.kernel == 'gauss':
         hdr.add_comment('Convolved with Gaussian convolution function.')
