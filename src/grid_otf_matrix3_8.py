@@ -98,19 +98,22 @@ def grid_otf(spec_array, spec_size, nx, ny, glong, glat, pix_scale, weight=None,
             print ("kern must be one of gaussbessel or gauss")
         return result
 
-
+    #import ipdb; ipdb.set_trace()
     # Generate image dimension
-    glong_start = np.nanmax(glong) # starting at the max
+    refXsky=2.0
+    refYsky=3.0
+    glong_start = np.nanmax(glong) + refXsky  # starting at the max
     if glong_start > 359.0:
         # 360-0 direction
         glong_360_0_axis = -np.arange(nx/2, dtype=np.float32)  * pix_scale + glong_start
+        glong_360_0_axis = np.array([i-360 if i>360 else i for i in glong_360_0_axis]) # with map-center some may be shifted over the +360-0 axis
         # 0-360 direction
-        glong_0_360_axis = np.arange(nx/2, dtype=np.float32)  * pix_scale
-        glong_0_360_axis = np.flip(glong_0_360_axis)
+        glong_0_360_axis = np.arange(nx/2, dtype=np.float32)   * pix_scale + (glong_start-360.0)
+        glong_0_360_axis = np.flip(glong_0_360_axis) 
         glong_axis = np.concatenate((glong_0_360_axis, glong_360_0_axis))
     else:
         glong_axis = -np.arange(nx, dtype=np.float32)  * pix_scale + glong_start #np.arrange does 0 to size in type float32 * pizel size makes them pixels # start is the offset
-    glat_start = np.nanmin(glat) # start at the top rigtht
+    glat_start = np.nanmin(glat) - refYsky # start at the top rigtht
     glat_axis = np.arange(ny, dtype=np.float32) * pix_scale + glat_start #array of pixels
 
    
