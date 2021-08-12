@@ -201,6 +201,15 @@ def set_output_files(source, rest_freq, args, file_types, verbose=4):
         result[file_type] = typeName
     return result
 
+def coverage_map(data):
+    x,y = data.shape
+    coverage_data = np.zeros((x,y))
+    for i in range(x):
+        for j in range(y):
+            if not np.isnan(data[i,j]): coverage_data[i,j]=1.0
+    return coverage_data
+
+
 
 def gbtgridder(args):
     global spec
@@ -308,7 +317,7 @@ def gbtgridder(args):
                 
                 # this also checks that the output files are OK to write
                 # given the value of the clobber argument
-                outputFiles = set_output_files(source, rest_freq, args, ["cube","weight","line","cont", "coverage_map"],
+                outputFiles = set_output_files(source, rest_freq, args, ["cube","weight","line","cont", "cov_map"],
                                                verbose=verbose)
                 if len(outputFiles) == 0:
                     if verbose > 1:
@@ -657,6 +666,15 @@ def gbtgridder(args):
     # adding STOKES axis
     phdu = pyfits.PrimaryHDU(cube[...,None].T, header=hdr) #[...,None].T, header=hdr)
     phdu.writeto(outputFiles["cube"])
+
+    if not args.nocov:
+        if verbose > 3: print("Writing the Coverage Map")
+        cov = coverage_map(cube[:,:,0])
+        # adding arbitrary 'channel' dimension to the cov array
+        cov = cov[..., np.newaxis] 
+        # adding STOKES axis
+        phdu = pyfits.PrimaryHDU(cov[...,None].T, header=hdr)
+        phdu.writeto(outputFiles["cov_map"])
 
     if not args.noweight:
         if verbose > 3:

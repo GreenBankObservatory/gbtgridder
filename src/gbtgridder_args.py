@@ -83,6 +83,8 @@ def parser_args(args, gbtgridderVersion):
                         " of --size, --pixelwidth, --mapcenter and --proj arguments.")
     parser.add_argument("--autoConfirm", default=False, action="store_true",
                         help="Set this to True if you'd like to auto-confirm the program stop and move straight into gridding")
+    parser.add_argument("--nocov", default=False, action="store_true",
+                        help="Set this to turn off production of the output coverage map")
     parser.add_argument("--noweight", default=False, action="store_true",
                         help="Set this to turn off production of the output weight cube")
     parser.add_argument("--noline", default=False, action="store_true",
