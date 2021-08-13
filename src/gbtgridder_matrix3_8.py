@@ -400,8 +400,12 @@ def gbtgridder(args):
     ny = None
     refXpix=None
     refYpix=None
-    refXsky = args.mapcenter[0]
-    refYsky = args.mapcenter[1]
+    if args.mapcenter:
+        refXsky = args.mapcenter[0]
+        refYsky = args.mapcenter[1]
+    else:
+        refXsky=0
+        refYsky=0
 
     if args.clonecube is not None:
         # use the cloned values
@@ -566,7 +570,7 @@ def gbtgridder(args):
         print ("\n\n Gridding")
 
     try: # pass all the info to the grid_otf function
-        (cube, weight, final_fwhm) = grid_otf(spec, spec_size, nx, ny, glong, glat, pix_scale, weight=weight, beam_fwhm=beam_fwhm, kern=args.kernel, _D=args.diameter, gauss_fwhm=gauss_fwhm, verbose=verbose)
+        (cube, weight, final_fwhm) = grid_otf(spec, spec_size, nx, ny, glong, glat, pix_scale, refXsky, centerYsky, weight=weight, beam_fwhm=beam_fwhm, kern=args.kernel, _D=args.diameter, gauss_fwhm=gauss_fwhm, verbose=verbose)
     except MemoryError:
         if verbose > 1:
             print ("Not enough memory to create the image cubes necessary to grid this data")

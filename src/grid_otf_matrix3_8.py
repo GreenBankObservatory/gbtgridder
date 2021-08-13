@@ -34,7 +34,7 @@ spec = None
 def convolve(idx):
     return conv_weights.dot(spec[:, idx])
 
-def grid_otf(spec_array, spec_size, nx, ny, glong, glat, pix_scale, weight=None, beam_fwhm=None, kern="gaussbessel", _D=100, gauss_fwhm=None, verbose=4):
+def grid_otf(spec_array, spec_size, nx, ny, glong, glat, pix_scale, refXsky, centerYsky, weight=None, beam_fwhm=None, kern="gaussbessel", _D=100, gauss_fwhm=None, verbose=4):
     """
     Grid individual spectra onto a specified regular grid following the 
     recommendations of Mangum et al. (2007).  This is writtent to be of general
@@ -98,10 +98,8 @@ def grid_otf(spec_array, spec_size, nx, ny, glong, glat, pix_scale, weight=None,
             print ("kern must be one of gaussbessel or gauss")
         return result
 
-    #import ipdb; ipdb.set_trace()
     # Generate image dimension
-    refXsky=2.0
-    refYsky=3.0
+    # start at the origin or map center then build out
     glong_start = np.nanmax(glong) + refXsky  # starting at the max
     if glong_start > 359.0:
         # 360-0 direction
@@ -113,8 +111,13 @@ def grid_otf(spec_array, spec_size, nx, ny, glong, glat, pix_scale, weight=None,
         glong_axis = np.concatenate((glong_0_360_axis, glong_360_0_axis))
     else:
         glong_axis = -np.arange(nx, dtype=np.float32)  * pix_scale + glong_start #np.arrange does 0 to size in type float32 * pizel size makes them pixels # start is the offset
-    glat_start = np.nanmin(glat) - refYsky # start at the top rigtht
-    glat_axis = np.arange(ny, dtype=np.float32) * pix_scale + glat_start #array of pixels
+
+    glat_start = centerYsky # start at the map center (or origin) and build out
+    glat_top = -np.arange(ny/2, dtype=np.float32)  * pix_scale + glat_start
+    glat_bottom = np.arange(ny/2, dtype=np.float32)  * pix_scale + glat_start
+    glat_top = np.flip(glat_top)
+    glat_axis = np.concatenate((glat_top, glat_bottom))
+
 
    
     gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0*np.log(2.0)))# equivalent of 'b' 
@@ -212,5 +215,5 @@ def grid_otf(spec_array, spec_size, nx, ny, glong, glat, pix_scale, weight=None,
         out=np.ones((nx, ny, spec_size)) * np.nan,
         where=sum_conv_weights != 0.0,
     )
-        
+
     return (image_cube, sum_conv_weights, final_fwhm)
