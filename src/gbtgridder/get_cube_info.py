@@ -57,14 +57,14 @@ def get_cube_info(cubeFile, verbose=4):
 
     if not os.path.exists(cubeFile):
         if verbose > 1:
-            print "%s not found" % cubeFile
+            print ("%s not found" % cubeFile)
         return result
 
     try:
         cfits = pyfits.open(cubeFile,readonly=True,memmap=True)
         if cfits[0].header['naxis'] != 4:
             if verbose > 1:
-                print "%s does not have 4 axes in the PHDU image" % cubeFile
+                print ("%s does not have 4 axes in the PHDU image" % cubeFile)
             cfits.close()
             return result
 
@@ -88,27 +88,27 @@ def get_cube_info(cubeFile, verbose=4):
 
         if cdelt1 > 0.0 or cdelt2 < 0.0:
             if verbose > 1:
-                print "1st and/or 2nd axes of %s are inverted from expected direction" % cubeFile
+                print ("1st and/or 2nd axes of %s are inverted from expected direction" % cubeFile)
             return result
         if (abs(cdelt1)-abs(cdelt2)) > 0.01/3600.0:
             # can't check for exact equality because of rounding errors, the above is close enough.
             # abs(cdelt2) is the one that's actually used (should already be positive, just making sure
             if verbose > 1:
-                print "Pixel size is not the same on axis 1 and 2 in %s" % cubeFile
+                print ("Pixel size is not the same on axis 1 and 2 in %s" % cubeFile)
             return result
 
         ctype1Proj = ctype1[4:]
         ctype2Proj = ctype2[4:]
         if ctype1Proj != ctype2Proj:
             if verbose > 1:
-                print "projections are not the same for axis 1 and 2 in %s" % cubeFile
+                print ("projections are not the same for axis 1 and 2 in %s" % cubeFile)
             return result
 
         # remove the leading '-'
         proj = ctype1Proj.split('-')[-1]
         if proj not in ["SFL","GLS","TAN"]:
             if verbose > 1:
-                print "Unrecognized projection %s in %s" % (proj,cubeFile)
+                print ("Unrecognized projection %s in %s" % (proj,cubeFile))
 
         if proj == "GLS":
             proj = "SFL"
@@ -132,7 +132,7 @@ def get_cube_info(cubeFile, verbose=4):
 
     except:
         if verbose > 1:
-            print "problems opening and reading values from %s" % cubeFile
+            print ("problems opening and reading values from %s" % cubeFile)
         raise
 
     return result

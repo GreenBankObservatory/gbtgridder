@@ -20,17 +20,19 @@
 #       P. O. Box 2
 #       Green Bank, WV 24944-0002 USA
 
-from boxcar import boxcar
+from .boxcar import boxcar
 
 import numpy
-from scipy import constants
 import astropy.time as apTime
 from astropy.io import fits
+
+# speed of light (m/s)
+_C = 299792458.0
 
 # instead of reporting on tsys flagging here, just return number actually flagged here
 # for reporting later
 
-def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys, maxtsys, 
+def get_data(sdfitsFile, chanStart, chanStop, average, scanlist, mintsys, maxtsys, 
              getdata=True,verbose=4):
     """
     Given an sdfits file, return the desired data and associated
@@ -44,41 +46,35 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
     # it is a serious error and so None is the returned result
     if len(thisFits) < 2:
         if verbose > 2:
-            print "%s has no extensions and is not a single dish FITS file, can not continue." % sdfitsFile
+            print ("%s has no extensions and is not a single dish FITS file, can not continue." % sdfitsFile)
         return None
 
     if len(thisFits) > 2:
         if verbose > 2:
-            print "%s has more than 1 extension, can not continue." % sdfitsFile
+            print ("%s has more than 1 extension, can not continue." % sdfitsFile)
         return None
 
     if thisFits[1].header['extname'] != 'SINGLE DISH':
         if verbose > 2:
-            print "%s is not a single dish FITS file, can not continue." % sdfitsFile
+            print ("%s is not a single dish FITS file, can not continue." % sdfitsFile)
         return None
 
     # if there are no rows, just move on
     if thisFits[1].header['NAXIS2'] == 0:
         if verbose > 2:
-            print "Warning: %s has no rows in the SDFITS table.  Skipping." % sdfitsFile
+            print ("Warning: %s has no rows in the SDFITS table.  Skipping." % sdfitsFile)
         thisFits.close()
         return result
 
     # get NCHAN for this file from the value of format for the DATA column
     # I wish astropy.io.fits had an easier way to get at this value
     colAtr = thisFits[1].columns.info("name,format",output=False)
-    thisNchan = int(colAtr['format'][colAtr['name'].index('DATA')][:-1])
-
-    if nchan is None:
-        nchan = thisNchan
-
-    # all tables must be consistent
-    assert(nchan == thisNchan)
+    nchan = int(colAtr['format'][colAtr['name'].index('DATA')][:-1])
 
     # averaging must be > 0 and <= nchan (equal to nchan may be silly)
     if average is not None and (average < 1 or average > nchan):
         if verbose > 1:
-            print "Error: averaging must be between 1 and the number of channels"
+            print ("Error: averaging must be between 1 and the number of channels")
         thisFits.close()
         return result
 
@@ -94,9 +90,10 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
         thisTabData = thisTabData[scanMask]
         if len(thisTabData) == 0:
             if verbose > 2:
-                print "Warning: %s has no rows within the list of selected scan numbers.  Skipping." % sdfitsFile
+                print ("Warning: %s has no rows within the list of selected scan numbers.  Skipping." % sdfitsFile)
             thisFits.close()
             return result                
+
 
     result['scans'] = thisTabData.field('scan')
     result['xsky'] = thisTabData.field('crval2')
@@ -112,9 +109,9 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
     # watch for ???? issues in [xy]ctype - caused by missing GO FITS file as seen by sdfits
     if result['xctype'] == '????' or result['yctype'] == '????':
         if verbose > 2:
-            print "Warning: first row in %s has unknown sky coordinate type probably due to missing GO fits file" % sdfitsFile
-            print "Warning: assuming J2000 RA/DEC coordinates"
-            print "Warning: the RESTFREQ value and the related ALTRPIX value in the output cubes are probably also wrong."
+            print ("Warning: first row in %s has unknown sky coordinate type probably due to missing GO fits file" % sdfitsFile)
+            print ("Warning: assuming J2000 RA/DEC coordinates")
+            print ("Warning: the RESTFREQ value and the related ALTRPIX value in the output cubes are probably also wrong.")
         result['xctype'] = 'RA'
         result['yctype'] = 'DEC'
         result['radesys'] = 'FK5'
@@ -135,13 +132,19 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
     # need the frequency axis information first
     # column values relevant to the frequency axis
     # assumes axis is FREQ
+    crval1 = thisTabData[0].field('crval1')
     crv1 = thisTabData.field('crval1')
+    cdelt1 = thisTabData[0].field('cdelt1')
     cd1 = thisTabData.field('cdelt1')
+    crpix1 = thisTabData[0].field('crpix1')
     crp1 = thisTabData.field('crpix1')
     vframe = thisTabData.field('vframe')
     frest = thisTabData.field('restfreq')
-    beta = vframe/constants.c
+    beta = vframe/_C
     doppler = numpy.sqrt((1.0+beta)/(1.0-beta))
+    result['crp1']=crpix1
+    result['cd1']=cdelt1
+    result['crv1']=crval1
 
     # full frequency axis in doppler tracked frame from first row
     # FITS counts from 1, this indx refers to the original axis, before chan selection
@@ -153,16 +156,21 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
         # chan selection happens here
         result["data"] = thisTabData.field('data')[:,chanStart:(chanStop+1)]
         # do any channel averaging here
+        #import ipdb; ipdb.set_trace()
         if average is not None:
             (result["data"],result["freq"]) = boxcar(result["data"],result["freq"],average)
 
     else:
         result["data"] = None
 
+    result['spec_size'] = result["data"][1,:].size
     # for now, scalar weights.  Eventually spectral weights - which will need to know
     # where the NaNs were in the above
     texp = thisTabData.field('exposure')
     tsys = thisTabData.field('tsys')
+    result['tsys']=tsys
+    result['texp']=texp
+
     # using nan_to_num here sets wt to 0 if there are tsys=0.0 values in the table
     # normalize to Tsys = 25.0
     relTsys = tsys/25.0
@@ -212,7 +220,7 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
         result['specsys'] = specSysDict[dopframe]
     else:
         if verbose > 2:
-            print "WARN: unrecognized frequency reference frame %s ... using OBS" % dopframe
+            print ("WARN: unrecognized frequency reference frame %s ... using OBS" % dopframe)
         result['specsys'] = specSysDict['OBS']
 
     # source name of first spectra
@@ -229,7 +237,7 @@ def get_data(sdfitsFile, nchan, chanStart, chanStop, average, scanlist, mintsys,
     # string is copied over to "calibtype".
     result['calibtype'] = result['units']
     if result['units'] != 'Jy':
-        result['units'] = 'K'
+        result['units'] = 'K'    
 
     # additional information - this is what idlToSdfits supplies
     # all of these come from just the first row - no check to see if they vary in the file

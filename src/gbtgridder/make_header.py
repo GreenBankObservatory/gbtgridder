@@ -31,7 +31,7 @@ def make_header(xref, yref, xsize, ysize, pix_scale, xref_pix, yref_pix, coordTy
     hdr['NAXIS'] = 4
     hdr['NAXIS1'] = xsize
     hdr['NAXIS2'] = ysize
-    hdr['NAXIS3'] = len(faxis)
+    hdr['NAXIS3'] = 1
     hdr['NAXIS4'] = 1
 
     ctypeDashes = '----'
@@ -43,7 +43,7 @@ def make_header(xref, yref, xsize, ysize, pix_scale, xref_pix, yref_pix, coordTy
     hdr['CTYPE1'] = xctype + '-' + proj
     hdr['CRVAL1'] = xref
     hdr['CRPIX1'] = xref_pix
-    hdr['CDELT1'] = -1.0*pix_scale
+    hdr['CDELT1'] = -pix_scale
 
     hdr['CTYPE2'] = yctype + '-' + proj
     hdr['CRVAL2'] = yref
