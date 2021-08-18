@@ -21,6 +21,7 @@
 #       Green Bank, WV 24944-0002 USA
 
 import numpy
+import math
 
 def boxcar(dataArray, freqAxis, width):
     """Smooth all of the spectra in dataArray using a boxcar of the requested width.
@@ -42,10 +43,10 @@ def boxcar(dataArray, freqAxis, width):
     """
 
     if dataArray.ndim != 2:
-        raise ValueError, "boxcar expected dataArray to have 2 dimensions"
+        raise ValueError("boxcar expected dataArray to have 2 dimensions")
 
     if dataArray.shape[1] < width:
-        raise ValueError, "width must be < number of channels"
+        raise ValueError("width must be < number of channels")
 
     box = numpy.ones(width,'float32') / width
     nspec, nchan = dataArray.shape
@@ -54,7 +55,9 @@ def boxcar(dataArray, freqAxis, width):
     if width*nout == nchan:
         nout -= 1
 
-    result = numpy.zeros((nspec,nout),'float32')
+    nout=math.ceil(nout)
+    
+    result = numpy.zeros((nspec,nout),'float32') 
     for i in range(nspec):
         y = numpy.convolve(box,dataArray[i,:],mode='valid')
         # decimate and save
