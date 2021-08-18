@@ -2,4 +2,4 @@ sparse==0.12.0
 numpy==1.19.2
 astropy
 scipy
-argparse
+PyQt5
