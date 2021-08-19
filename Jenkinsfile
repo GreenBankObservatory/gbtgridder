@@ -19,7 +19,8 @@ pipeline {
     stage('pre-commit') {
       steps {
         sh '''
-          pre-commit run --all-files
+          # Run only on changed files
+          pre-commit run --from-ref origin/HEAD --to-ref HEAD
         '''
       }
     }
@@ -27,7 +28,7 @@ pipeline {
 
   post {
     always {
-      do_notify(to: 'tchamber@nrao.edu')
+      do_notify(to: 'gbosdd@nrao.edu')
     }
   }
 }
