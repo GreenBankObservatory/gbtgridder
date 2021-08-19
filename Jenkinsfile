@@ -1,7 +1,7 @@
 pipeline {
   agent 'any'
 
-  env {
+  environment {
     PATH = "/home/sandboxes/monctrl/venvs/pre-commit-env/bin:${PATH}"
   }
 
