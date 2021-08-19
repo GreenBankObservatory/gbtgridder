@@ -20,7 +20,7 @@ pipeline {
       steps {
         sh """
           # Run only on changed files
-          pre-commit run --from-ref origin/${env.BRANCH_NAME} --to-ref HEAD
+          pre-commit run --from-ref ${env.GIT_PREVIOUS_COMMIT} --to-ref ${env.GIT_COMMIT}
         """
       }
     }
