@@ -1,6 +1,10 @@
 pipeline {
   agent 'any'
 
+  env {
+    PATH = "/home/sandboxes/monctrl/venvs/pre-commit-env/bin:${PATH}"
+  }
+
   stages {
     stage('Init') {
       steps {
