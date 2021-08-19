@@ -24,4 +24,5 @@ source .venv/bin/activate
 # Not required, but recommended
 pip install -U pip setuptools wheel build
 pip install -r dev-requirements.txt
+pre-commit install
 ```
