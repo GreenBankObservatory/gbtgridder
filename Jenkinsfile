@@ -2,7 +2,7 @@ pipeline {
   agent 'any'
 
   environment {
-    PATH = "/home/gbors/pythonversions/3.8/bin:${PATH}"
+    PATH = "/home/gbors/pythonversions/3.8/bin:/opt/rh/rh-git29/root/usr/bin:${PATH}"
   }
 
   stages {
