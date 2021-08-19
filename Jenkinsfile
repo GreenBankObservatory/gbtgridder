@@ -2,7 +2,7 @@ pipeline {
   agent 'any'
 
   environment {
-    PATH = "/home/sandboxes/monctrl/venvs/pre-commit-env/bin:${PATH}"
+    PATH = "/home/gbors/pythonversions/3.8/bin:${PATH}"
   }
 
   stages {
