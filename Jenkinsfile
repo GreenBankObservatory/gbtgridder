@@ -2,7 +2,7 @@ pipeline {
   agent 'any'
 
   environment {
-    PATH = "/home/gbors/pythonversions/3.8/bin:/opt/rh/rh-git29/root/usr/bin:${PATH}"
+    PATH = "/home/gbors/pythonversions/3.8/bin:${PATH}"
   }
 
   stages {
@@ -20,7 +20,7 @@ pipeline {
       steps {
         sh '''
           # Run only on changed files
-          pre-commit run --from-ref origin/HEAD --to-ref HEAD
+          pre-commit run --from-ref origin/${env.BRANCH_NAME} --to-ref HEAD
         '''
       }
     }
