@@ -18,10 +18,10 @@ pipeline {
 
     stage('pre-commit') {
       steps {
-        sh '''
+        sh """
           # Run only on changed files
           pre-commit run --from-ref origin/${env.BRANCH_NAME} --to-ref HEAD
-        '''
+        """
       }
     }
   }
