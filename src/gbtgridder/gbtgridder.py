@@ -194,6 +194,7 @@ def set_output_files(source, rest_freq, args, file_types, verbose=4):
     if verbose > 4:
         print("outname root : ", outputNameRoot)
         print("     clobber : ", clobber)
+        sys.stdout.flush()
 
     result = {}
     for file_type in file_types:
@@ -280,6 +281,7 @@ def gbtgridder(args):
 
     if verbose > 3:
         print("Loading data ... ")
+        sys.stdout.flush()
 
     num_positions = 0
     idx = 0
@@ -287,6 +289,7 @@ def gbtgridder(args):
         try:
             if verbose > 3:
                 print("   ", thisFile)
+                sys.stdout.flush()
             dataRecord = get_data(
                 thisFile,
                 chanStart,
@@ -651,6 +654,7 @@ def gbtgridder(args):
 
     if verbose > 3:
         print("\n\n Gridding")
+        sys.stdout.flush()
 
     try:  # pass all the info to the grid_otf function
         (cube, weight, final_fwhm) = grid_otf(

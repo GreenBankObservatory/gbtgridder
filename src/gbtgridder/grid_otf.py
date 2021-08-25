@@ -167,6 +167,7 @@ def grid_otf(
     # grid point and each data point.
     if verbose > 2:
         print("Generating sparse distance matrix...")
+        sys.stdout.flush()
     glong_diff = glong_axis[..., None] - glong
     remove = (np.abs(glong_diff) > support_distance) + np.isnan(
         glong_diff
@@ -214,6 +215,7 @@ def grid_otf(
     # Generate data weights, combine with convolution weights # Generate the weights image
     if verbose > 2:
         print("Calculating data weights...")
+        sys.stdout.flush()
     data_weights = weight
     isnan = np.isnan(data_weights)
     data_weights[isnan] = 0.0
@@ -226,9 +228,11 @@ def grid_otf(
     result = np.empty((nx, ny, spec_size))
     if verbose > 2:
         print("Convolving...")
+        sys.stdout.flush()
     for index in range(spec_size):
         counterStr = counterFormat % (index + 1)
         sys.stdout.write("\r%s" % counterStr)
+        sys.stdout.flush()
         result[:, :, index - 1] = convolve(index - 1)
 
     print("\n")  # just to make the outputs look nicer
