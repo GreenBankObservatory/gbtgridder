@@ -28,7 +28,7 @@ pipeline {
 
   post {
     always {
-      do_notify()
+      do_notify(to: 'kpurcell@nrao.edu')
     }
   }
 }
