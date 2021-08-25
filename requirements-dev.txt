@@ -4,6 +4,9 @@
 #
 #    pip-compile requirements-dev.in
 #
+--extra-index-url http://galileo.gb.nrao.edu:9753/simple/
+--trusted-host galileo.gb.nrao.edu
+
 backports.entry-points-selectable==1.1.0
     # via virtualenv
 cfgv==3.3.0
