@@ -29,6 +29,7 @@ import numpy as np
 from astropy.io import fits as pyfits
 
 from . import gbtgridder_args
+from .cov_otf import cov_otf
 from .get_cube_info import get_cube_info
 from .get_data import get_data
 from .grid_otf import grid_otf
@@ -212,16 +213,6 @@ def set_output_files(source, rest_freq, args, file_types, verbose=4):
     return result
 
 
-def coverage_map(data):
-    x, y = data.shape
-    coverage_data = np.zeros((x, y))
-    for i in range(x):
-        for j in range(y):
-            if not np.isnan(data[i, j]):
-                coverage_data[i, j] = 1.0
-    return coverage_data
-
-
 def gbtgridder(args):
     global spec
     start_time = time.time()
@@ -245,6 +236,7 @@ def gbtgridder(args):
 
     minTsys = args.mintsys
     maxTsys = args.maxtsys
+    make_cov = args.coverageMap
 
     scanlist = args.scans
     if args.scans is not None:
@@ -344,7 +336,7 @@ def gbtgridder(args):
                     source,
                     rest_freq,
                     args,
-                    ["cube", "weight", "line", "cont", "cov_map"],
+                    ["cube", "weight", "line", "cont"],
                     verbose=verbose,
                 )
                 if len(outputFiles) == 0:
@@ -480,7 +472,7 @@ def gbtgridder(args):
         else:
             # find the cell size, first from the beam_fwhm
             pixPerBeam = 5.0
-            if args.kernel == "nearest":
+            if args.kernel == "nearest" or make_cov:
                 # assume it's nyquist sampled, use 2 pixels per beam
                 pixPerBeam = 2.0
 
@@ -513,6 +505,8 @@ def gbtgridder(args):
         gauss_fwhm = (
             2.52 * 2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm
         )  # removed 2.52 before sqrt and it resolved
+    elif make_cov:
+        gauss_fwhm = 0.0  # adapted nearest kernel for coverage map
     else:
         gauss_fwhm = 0.0  # don't need this value for pill box
 
@@ -537,7 +531,7 @@ def gbtgridder(args):
             # then reset refYsky
             refYsky = 0.0
 
-    if verbose > 4:
+    if verbose > 4 and not make_cov:
         print("Data summary ...")
         print("   scans : ", format_scans(uniqueScans))
         print("   channels : %d:%d" % (chanStart, chanStop))
@@ -576,6 +570,13 @@ def gbtgridder(args):
         print("      source : ", source)
         print(" frest (MHz) : ", rest_freq / 1.0e6)
 
+    if make_cov and verbose > 4:
+        print("\n Map info ...")
+        print("   beam_fwhm : ", beam_fwhm, "(", beam_fwhm * 60.0 * 60.0, " arcsec)")
+        print("    ref Xsky : ", refXsky)
+        print(" center Ysky : ", centerYsky)
+        print("      source : ", source)
+
     # build the initial header object
     hdr = make_header(
         refXsky,
@@ -612,15 +613,22 @@ def gbtgridder(args):
     print(
         "\n\n Your parameters were either user specified or assumed to be the following. Please reveiw: \n"
     )
-    print_list = [
-        ["Kernel", args.kernel],
-        ["Telescope", telescope],
-        ["Projection", args.proj],
-        ["Input Chan.", str(chanStart) + ":" + str(chanStop)],
-        ["# Output Chan.", spec_size],
-        ["# of spec.", num_positions],
-        ["Image size", str(nx) + "x" + str(ny)],
-    ]
+    if make_cov:
+        print_list = [
+            ["Telescope", telescope],
+            ["Image X Center", refXsky],
+            ["Image Y Center", centerYsky],
+        ]
+    else:
+        print_list = [
+            ["Kernel", args.kernel],
+            ["Telescope", telescope],
+            ["Projection", args.proj],
+            ["Input Chan.", str(chanStart) + ":" + str(chanStop)],
+            ["# Output Chan.", spec_size],
+            ["# of spec.", num_positions],
+            ["Image size", str(nx) + "x" + str(ny)],
+        ]
     print("{:<13} {:<2}".format("Name", "Value"))
     print("{:<13} {:<2}".format("--------", "---------"))
     for v in print_list:
@@ -652,28 +660,42 @@ def gbtgridder(args):
                     "Selection not recognized. Try again. 'Y' for yes, 'N' for no. \n"
                 )
 
-    if verbose > 3:
+    if verbose > 3 and not make_cov:
         print("\n\n Gridding")
+        sys.stdout.flush()
+    if verbose > 3 and make_cov:
+        print("\n\n Making Coverage Map")
         sys.stdout.flush()
 
     try:  # pass all the info to the grid_otf function
-        (cube, weight, final_fwhm) = grid_otf(
-            spec,
-            spec_size,
-            nx,
-            ny,
-            glong,
-            glat,
-            pix_scale,
-            refXsky,
-            centerYsky,
-            weight=weight,
-            beam_fwhm=beam_fwhm,
-            kern=args.kernel,
-            _D=args.diameter,
-            gauss_fwhm=gauss_fwhm,
-            verbose=verbose,
-        )
+        if make_cov:  # dont want to do standard gridding
+            (cube) = cov_otf(
+                glong,
+                glat,
+                verbose=verbose,
+            )
+            final_fwhm = np.sqrt(
+                beam_fwhm ** 2.0 + gauss_fwhm ** 2.0
+            )  # this is needed for the header
+
+        else:  # do standard gridding
+            (cube, weight, final_fwhm) = grid_otf(
+                spec,
+                spec_size,
+                nx,
+                ny,
+                glong,
+                glat,
+                pix_scale,
+                refXsky,
+                centerYsky,
+                weight=weight,
+                beam_fwhm=beam_fwhm,
+                kern=args.kernel,
+                _D=args.diameter,
+                gauss_fwhm=gauss_fwhm,
+                verbose=verbose,
+            )
     except MemoryError:
         if verbose > 1:
             print(
@@ -691,7 +713,7 @@ def gbtgridder(args):
             print("Problem gridding data")
         return
 
-    if verbose > 3:
+    if verbose > 3 and not make_cov:
         print("Writing cube")
 
     # start writing stuff to disk
@@ -783,21 +805,12 @@ def gbtgridder(args):
         "  and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
     )
 
-    # adding STOKES axis
-    phdu = pyfits.PrimaryHDU(cube[..., None].T, header=hdr)  # [...,None].T, header=hdr)
-    phdu.writeto(outputFiles["cube"])
-
-    if not args.nocov:
-        if verbose > 3:
-            print("Writing the Coverage Map")
-        cov = coverage_map(cube[:, :, 0])
-        # adding arbitrary 'channel' dimension to the cov array
-        cov = cov[..., np.newaxis]
+    if not make_cov:
         # adding STOKES axis
-        phdu = pyfits.PrimaryHDU(cov[..., None].T, header=hdr)
-        phdu.writeto(outputFiles["cov_map"])
+        phdu = pyfits.PrimaryHDU(cube[..., None].T, header=hdr)
+        phdu.writeto(outputFiles["cube"])
 
-    if not args.noweight:
+    if not args.noweight and not make_cov:
         if verbose > 3:
             print("Writing weight cube")
         wtHdr = hdr.copy()
@@ -809,7 +822,7 @@ def gbtgridder(args):
         phdu = pyfits.PrimaryHDU(weight[..., None].T, header=wtHdr)
         phdu.writeto(outputFiles["weight"])
 
-    if not args.nocont:
+    if not args.nocont and not make_cov:
         if verbose > 3:
             print("Writing 'cont' image")
         # "cont" map, sum along the spectral axis
@@ -834,7 +847,7 @@ def gbtgridder(args):
         phdu = pyfits.PrimaryHDU(cont_map[..., None].T, header=contHdr)
         phdu.writeto(outputFiles["cont"])
 
-    if not args.noline:
+    if not args.noline and not make_cov:
         if verbose > 3:
             print("Writing line image")
         # "line" map, subtract the along the spectral axis from every plane in the data_cube

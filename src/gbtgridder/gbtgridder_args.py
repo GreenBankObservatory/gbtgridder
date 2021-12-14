@@ -144,10 +144,10 @@ def parser_args(args, gbtgridderVersion):
         help="Set this to True if you'd like to auto-confirm the program stop and move straight into gridding",
     )
     parser.add_argument(
-        "--nocov",
+        "--coverageMap",
         default=False,
         action="store_true",
-        help="Set this to turn off production of the output coverage map",
+        help="Set this to make only a coverage map",
     )
     parser.add_argument(
         "--noweight",

@@ -135,10 +135,15 @@ def grid_otf(
         glong_0_360_axis = np.flip(glong_0_360_axis)
         glong_axis = np.concatenate((glong_0_360_axis, glong_360_0_axis))
     else:
+        """
+        glong_less = np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
+        glong_more = -np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
+        glong_more = np.flip(glong_more)
+        glong_axis = np.concatenate((glong_less, glong_more))
+        """
         glong_axis = (
             -np.arange(nx, dtype=np.float32) * pix_scale + glong_start
         )  # np.arrange does 0 to size in type float32 * pizel size makes them pixels # start is the offset
-
     glat_start = centerYsky  # start at the map center (or origin) and build out
     glat_bottom = -np.arange(ny / 2, dtype=np.float32) * pix_scale + glat_start
     glat_top = np.arange(ny / 2, dtype=np.float32) * pix_scale + glat_start

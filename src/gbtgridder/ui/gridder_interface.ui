@@ -343,7 +343,7 @@
      <string>average</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="covMap">
+   <widget class="QPushButton" name="coverageStart">
     <property name="geometry">
      <rect>
       <x>30</x>
@@ -1387,7 +1387,7 @@
    <zorder>noweight</zorder>
    <zorder>outputName</zorder>
    <zorder>label_6</zorder>
-   <zorder>covMap</zorder>
+   <zorder>coverageStart</zorder>
    <zorder>channels</zorder>
    <zorder>label</zorder>
    <zorder>CLString</zorder>

@@ -15,10 +15,12 @@ from PyQt5.uic import *
 dirPath = os.path.dirname(os.path.realpath(__file__))  # dir __file__ is in
 qtCreatorFile = dirPath + "/gridder_interface.ui"  # Enter .ui file from Designer here.
 output_popupFile = dirPath + "/output_popup.ui"
+coverage_popupFile = dirPath + "/cov_popup.ui"
 
 # load our .ui file
 Ui_MainWindow, QtBaseClass = loadUiType(qtCreatorFile)
 Ui_OutPop, OutPopBaseClass = loadUiType(output_popupFile)
+Ui_CovPop, CovPopBaseClass = loadUiType(coverage_popupFile)
 
 
 class OP(QWidget, Ui_OutPop):
@@ -65,6 +67,77 @@ class OP(QWidget, Ui_OutPop):
         # account for output after either a 'yes' or 'no' response
         self.message(
             "\n \n The gridding program has completed! Please check your output location for your gridded files, or navigate back to the main window to re-run the gridder. \n \n"
+        )
+
+    def handle_stdout(self):
+        data = self.p.readAllStandardOutput()
+        stdout = bytes(data).decode("utf8")
+        self.message(stdout)  # send the sdtout to the output text box
+
+    def handle_stderr(self):
+        data = self.p.readAllStandardError()
+        stderr = bytes(data).decode("utf8")
+        self.bad_message(stderr)  # send the stderr to the error output text box
+
+    def message(self, s):
+        self.CL_output.appendPlainText(s)  # display any text to the output text box
+
+    def bad_message(self, k):
+        self.CL_error.appendPlainText(k)  # display the errors to the stderr text box
+
+    def writeInputAccept(self):
+        self.p.write(b"Yes\n")  # answers the CL input
+        self.buttonOff(self.yesNo_2)
+
+    def writeInputReject(self):
+        self.p.write(b"No\n")  # answers the CL input
+        self.buttonOff(self.yesNo_2)
+
+
+class Cov_Pop(QWidget, Ui_CovPop):
+    def __init__(self, arguments, the_string):
+        """Initialize our controller class."""
+        QWidget.__init__(self)
+        Ui_CovPop.__init__(self)
+        self.setupUi(self)
+
+        # turn off until the oputput is read
+        self.buttonOff(self.yesNo_2)
+
+        # begin the gridding
+        self.p = None
+        self.arguments = [x for x in arguments if x != ""]
+        self.arguments.append("--coverageMap")
+        self.the_string = the_string
+        self.gridderAction()
+
+        self.yesNo_2.accepted.connect(self.writeInputAccept)
+        self.yesNo_2.rejected.connect(self.writeInputReject)
+
+    # set up turning of and on actions for y/n button
+    def buttonOn(self, targetBtn):
+        targetBtn.setDisabled(False)
+
+    def buttonOff(self, targetBtn):
+        targetBtn.setEnabled(False)
+
+    def gridderAction(self):
+        if self.p is None:  # No process running.
+            self.p = (
+                QProcess()
+            )  # Keep a reference to the QProcess (e.g. on self) while it's running.
+            self.p.readyReadStandardOutput.connect(self.handle_stdout)
+            self.p.readyReadStandardError.connect(self.handle_stderr)
+            self.p.finished.connect(self.process_finished)  # Clean up once complete.
+            self.p.start(
+                "gbtgridder", self.arguments
+            )  # gridder lives one dir down on dev.
+
+    def process_finished(self):
+        self.p = None
+        # account for output after either a 'yes' or 'no' response
+        self.message(
+            "\n \n The coverage map program has completed! Please check your output location for your map file, or navigate back to the main window to re-run the process. \n \n"
         )
 
     def handle_stdout(self):
@@ -176,6 +249,7 @@ class App(QMainWindow, Ui_MainWindow):
         )  # put all the peices together
 
         self.gridderStart.clicked.connect(self.gridderAction)
+        self.coverageStart.clicked.connect(self.coverageAction)
 
         # save and load
         self.save_button.clicked.connect(self.saveAction)
@@ -293,6 +367,14 @@ class App(QMainWindow, Ui_MainWindow):
             self.arguments, self.the_string
         )  # run the widget window for gridding
         self.gridderWindow.show()  # display the widget window
+
+    def coverageAction(self):  # if the user clicks the button to grid in the ui
+        self.makeStringAction()  # get the most up-to-date list of arguments
+        self.arguments = self.the_list
+        self.coverageWindow = Cov_Pop(
+            self.arguments, self.the_string
+        )  # run the widget window for gridding
+        self.coverageWindow.show()  # display the widget window
 
     def saveAction(self):
         name, filetype = QFileDialog.getSaveFileName(
