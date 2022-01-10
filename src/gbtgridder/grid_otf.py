@@ -119,8 +119,8 @@ def grid_otf(
 
     # Generate image dimension
     # start at the origin or map center then build out
-    glong_start = np.nanmax(glong) + refXsky  # starting at the max
-    if glong_start > 359.0:
+    glong_start = refXsky  # starting at the center
+    if np.nanmax(glong) + glong_start > 359.0:
         # 360-0 direction
         glong_360_0_axis = (
             -np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
@@ -135,15 +135,17 @@ def grid_otf(
         glong_0_360_axis = np.flip(glong_0_360_axis)
         glong_axis = np.concatenate((glong_0_360_axis, glong_360_0_axis))
     else:
-        """
-        glong_less = np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
-        glong_more = -np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
-        glong_more = np.flip(glong_more)
-        glong_axis = np.concatenate((glong_less, glong_more))
-        """
-        glong_axis = (
-            -np.arange(nx, dtype=np.float32) * pix_scale + glong_start
-        )  # np.arrange does 0 to size in type float32 * pizel size makes them pixels # start is the offset
+
+        # build out from middle
+        glong_increasing = np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
+        glong_decreasing = (
+            -np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
+        )
+        glong_increasing = np.flip(glong_increasing)
+        glong_axis = np.concatenate(
+            (glong_increasing, glong_decreasing)
+        )  # + glong_start
+
     glat_start = centerYsky  # start at the map center (or origin) and build out
     glat_bottom = -np.arange(ny / 2, dtype=np.float32) * pix_scale + glat_start
     glat_top = np.arange(ny / 2, dtype=np.float32) * pix_scale + glat_start
