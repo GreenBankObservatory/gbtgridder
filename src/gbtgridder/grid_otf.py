@@ -168,7 +168,6 @@ def grid_otf(
     # account for the 'pill box' kernel
     if kern == "nearest":
         support_distance = 1.0 * pix_scale  # one pixel
-        final_fwhm = 1.0
 
     # Generate spare matrix for the distance^2 between each
     # grid point and each data point.
