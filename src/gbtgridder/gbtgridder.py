@@ -276,7 +276,6 @@ def gbtgridder(args):
         sys.stdout.flush()
 
     num_positions = 0
-    idx = 0
     for thisFile in sdfitsFiles:
         try:
             if verbose > 3:
@@ -479,11 +478,15 @@ def gbtgridder(args):
             pix_scale = beam_fwhm / pixPerBeam
 
     # Generate image dimensions
-    glong_size = np.nanmax(glong) - np.nanmin(glong)
-    glat_size = np.nanmax(glat) - np.nanmin(glat)
-    glong_start = np.nanmax(glong)  # starting at the max
-    glat_start = np.nanmin(glat)  # start at the top rigtht
     if args.size is None:  # number of x axis pixels
+        glong_size = np.nanmax(glong) - np.nanmin(glong)
+        if glong_size > 300:
+            right = (glong > 300) * glong
+            left = (glong < 300) * glong
+            if len(right) != len(left) != len(glong):
+                raise Exception("Please run again with the mapcenter argument")
+            glong_size = np.nanmax(left) + 360 - np.min(right[np.nonzero(right)])
+        glat_size = np.nanmax(glat) - np.nanmin(glat)
         nx = int(np.ceil(glong_size / pix_scale)) + 1  # ceil takes next greater integer
         ny = (
             int(np.ceil(glat_size / pix_scale)) + 1
@@ -491,11 +494,6 @@ def gbtgridder(args):
     else:
         nx = args.size[0]
         ny = args.size[1]
-
-    if glong_start > 359:  # if glong passes 0 degrees we need to account for that
-        glong_start_hdr = np.nanmax(np.arange(nx / 2, dtype=np.float32) * pix_scale)
-    else:
-        pass
 
     # Get convolution Gaussian FWHM (deg)
     ## this is from Trey and it is about 0.555*beam_fwhm for gauss and 1.39 for bessel
