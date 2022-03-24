@@ -116,6 +116,11 @@ def parser_args(args, gbtgridderVersion):
     parser.add_argument(
         "--pixelwidth", type=float, help="Image pixel width on sky (arcsec)"
     )
+    parser.add_argument(
+        "--beam_fwhm",
+        type=float,
+        help="Specify the BEAM_FWHM (HPBW) value, default calculated per telscope diameter",
+    )
     parser.add_argument("--restfreq", type=float, help="Rest frequency (MHz)")
     parser.add_argument(
         "-p",

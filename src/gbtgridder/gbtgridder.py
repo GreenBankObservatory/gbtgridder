@@ -139,9 +139,7 @@ def parse_scans(scanlist):
                 for ii in thisrange:
                     oklist.add(ii)
             else:
-                print(item[0], ",", item[1], "needs to be in increasing ")
-                "order"
-                raise
+                raise ValueError(f"{item[0]},{item[1]} needs to be in increasing")
         else:
             print(item, "has more than 2 values")
 
@@ -216,6 +214,7 @@ def set_output_files(source, rest_freq, args, file_types, verbose=4):
 def gbtgridder(args):
     global spec
     start_time = time.time()
+    print("Collecting arguments and data... ")
 
     if not args.SDFITSfiles:
         print("no SDFITSfile")
@@ -420,7 +419,10 @@ def gbtgridder(args):
 
     # Get beam size (deg)
     _D = args.diameter
-    beam_fwhm = np.rad2deg(1.2 * _C / (_D * rest_freq))
+    if args.beam_fwhm:
+        beam_fwhm = args.beam_fwhm
+    else:
+        beam_fwhm = np.rad2deg(1.2 * _C / (_D * rest_freq))
 
     pix_scale = None
     nx = None
@@ -470,7 +472,7 @@ def gbtgridder(args):
                 raise ValueError("Pixel scale is larger than FWHM/2")
         else:
             # find the cell size, first from the beam_fwhm
-            pixPerBeam = 5.0
+            pixPerBeam = 3.0
             if args.kernel == "nearest" or make_cov:
                 # assume it's nyquist sampled, use 2 pixels per beam
                 pixPerBeam = 2.0
@@ -897,6 +899,7 @@ def main():
     gbtgridder_args.check_args(args)
 
     try:
+        print("Beginning the gridding process")
         gbtgridder(args)
     except ValueError:
         if args.verbose > 1:
