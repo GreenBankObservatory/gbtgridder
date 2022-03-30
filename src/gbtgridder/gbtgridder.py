@@ -433,8 +433,11 @@ def gbtgridder(args):
         refXsky = args.mapcenter[0]
         refYsky = args.mapcenter[1]
     else:
-        refXsky = 0
-        refYsky = 0
+        refYsky = round(np.mean(glat) * 3600.0) / 3600.0
+        if coordType[0] in ["RA", "HA"]:
+            refXsky = round(np.mean(glong) * 3600.0 / 15) / (3600.0 / 15.0)
+        else:
+            refXsky = round(np.mean(glong) * 3600.0) / 3600.0
 
     if args.clonecube is not None:
         # use the cloned values

@@ -119,16 +119,31 @@ def grid_otf(
 
     # Generate image dimension
     # start at the origin or map center then build out
+    # glong = glong*abs(np.cos(np.deg2rad(glat)))
+
+    glat_start = centerYsky  # start at the map center (or origin) and build out
+    glat_bottom = (
+        -np.arange(ny / 2, dtype=np.float32) * pix_scale
+        + glat_start  # - (1 * pix_scale)
+    )
+    glat_top = np.arange(ny / 2, dtype=np.float32) * pix_scale + glat_start
+    if ny % 2 != 0:
+        glat_bottom = np.delete(glat_bottom, 0)
+    glat_bottom = np.flip(glat_bottom)
+    glat_axis = np.concatenate((glat_bottom, glat_top))
+
     glong_start = refXsky  # starting at the center
     if np.nanmax(glong) + glong_start > 359.0 and np.nanmin(glong) + glong_start < 100:
         # 360-0 direction
         glong_360_0_axis = np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
+        if nx % 2 != 0:
+            glong_360_0_axis = np.delete(glong_360_0_axis, 0)
         glong_360_0_axis = np.flip(glong_360_0_axis)
 
         # 0-360 direction
         glong_0_360_axis = (
             -np.arange(nx / 2, dtype=np.float32) * pix_scale
-            - (1 * pix_scale)
+            # - (1 * pix_scale)
             + (glong_start + 360.0)
         )
         glong_0_360_axis = np.array(
@@ -136,24 +151,20 @@ def grid_otf(
         )  # with map-center some may be shifted over the +360-0 axis
 
         glong_axis = np.concatenate((glong_360_0_axis, glong_0_360_axis))
+        # glong_axis = glong_axis
     else:
         # build out from middle
         glong_increasing = np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
         glong_decreasing = (
             -np.arange(nx / 2, dtype=np.float32) * pix_scale
             + glong_start
-            - (1 * pix_scale)
+            # - (1 * pix_scale)
         )
+        if nx % 2 != 0:
+            glong_increasing = np.delete(glong_increasing, 0)
         glong_increasing = np.flip(glong_increasing)
         glong_axis = np.concatenate((glong_increasing, glong_decreasing))
-
-    glat_start = centerYsky  # start at the map center (or origin) and build out
-    glat_bottom = (
-        -np.arange(ny / 2, dtype=np.float32) * pix_scale + glat_start - (1 * pix_scale)
-    )
-    glat_top = np.arange(ny / 2, dtype=np.float32) * pix_scale + glat_start
-    glat_bottom = np.flip(glat_bottom)
-    glat_axis = np.concatenate((glat_bottom, glat_top))
+        # glong_axis = glong_axis
 
     gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))  # equivalent of 'b'
     # ie.       = 2.52*beam_fwhm/3.0
