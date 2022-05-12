@@ -26,11 +26,11 @@ import time
 import warnings
 
 import numpy as np
+from astropy import wcs
 from astropy.io import fits as pyfits
 
 from . import gbtgridder_args
 from .cov_otf import cov_otf
-from .get_cube_info import get_cube_info
 from .get_data import get_data
 from .grid_otf import grid_otf
 from .make_header import make_header
@@ -209,6 +209,63 @@ def set_output_files(source, rest_freq, args, file_types, verbose=4):
                     print("existing " + typeName + " removed")
         result[file_type] = typeName
     return result
+
+
+def smooth_regrid_spec(data, old_velocity_axis, new_velocity_axis):
+    """Smooth and re-grid spectra to a new velocity axis using sinc
+    interpolation.
+
+    Inputs:
+        data :: N-D array of scalars
+            The final axis should be the velocity axis
+        old_velocity_axis :: 1-D array of scalars
+            Current velocity axis
+        new_velocity_axis :: 1-D array of scalars
+            Regridded velocity axis
+    Returns: newdata
+        newdata :: N-D array of scalars
+            The final axis is the regridded velocity axis
+    """
+    old_res = old_velocity_axis[1] - old_velocity_axis[0]
+    new_res = new_velocity_axis[1] - new_velocity_axis[0]
+
+    # catch decreasing velocity axis
+    if old_res < 0.0:
+        old_velocity_axis = old_velocity_axis[::-1]
+        data = data[..., ::-1]
+        old_res = np.abs(old_res)
+    if new_res < old_res:
+        raise ValueError("Cannot smooth to a finer resolution!")
+
+    # construct sinc weights, and catch out of bounds
+    sinc_wts = np.array(
+        [
+            np.sinc((v - old_velocity_axis) / new_res)
+            if (old_velocity_axis[0] < v < old_velocity_axis[-1])
+            else np.zeros(len(old_velocity_axis)) * np.nan
+            for v in new_velocity_axis
+        ],
+        dtype="float32",
+    )
+
+    # normalize weights
+    sinc_wts = (sinc_wts.T / np.nansum(sinc_wts, axis=1)).T
+
+    # apply, handle NaNs
+    isnan = np.isnan(data)
+    data[isnan] = 0.0
+    nan_weights = np.ones(data.shape, dtype=data.dtype)
+    nan_weights[isnan] = 0.0
+    data = np.tensordot(sinc_wts, data, axes=([1], [-1]))
+    nan_weights = np.tensordot(sinc_wts, nan_weights, axes=([1], [-1]))
+
+    # replace zero weights with nan
+    nan_weights[nan_weights == 0.0] = np.nan
+    data = data / nan_weights
+
+    # move velocity axis back to end
+    data = np.moveaxis(data, 0, -1)
+    return data
 
 
 def gbtgridder(args):
@@ -404,6 +461,15 @@ def gbtgridder(args):
 
     # setting weight so we don't have to pass tsys and tint to grid_otf
     # this isn't in the dataRecord because we need it to have [idx : idx + num]
+    if glong.max() > 180:
+        glong_calc = np.array([i - 360 if i > 180 else i for i in glong])
+    else:
+        glong_calc = glong
+    # if args.proj == 'SFL':
+    # import ipdb;ipdb.set_trace()
+    #    glong = glong_calc*np.cos(np.deg2rad(glat))
+    # glong = np.array([i+360 if i<0 else i for i in glong])
+
     weight = texp / (tsys ** 2)
     if glong is None:
         if verbose > 1:
@@ -437,8 +503,10 @@ def gbtgridder(args):
         if coordType[0] in ["RA", "HA"]:
             refXsky = round(np.mean(glong) * 3600.0 / 15) / (3600.0 / 15.0)
         else:
-            refXsky = round(np.mean(glong) * 3600.0) / 3600.0
-
+            refXsky = round(np.mean(glong_calc) * 3600.0) / 3600.0
+            if refXsky < 0:
+                refXsky = refXsky + 360
+    """
     if args.clonecube is not None:
         # use the cloned values
         cubeInfo = get_cube_info(args.clonecube, verbose=verbose)
@@ -466,7 +534,7 @@ def gbtgridder(args):
                 pix_scale = cubeInfo["pix_scale"]
                 nx = cubeInfo["xsize"]
                 ny = cubeInfo["ysize"]
-
+    """
     if pix_scale is None:  # in sdgridder this was pixel_size
         if args.pixelwidth is not None:
             # use user-supplied value, convert to degrees
@@ -484,13 +552,16 @@ def gbtgridder(args):
 
     # Generate image dimensions
     if args.size is None:  # number of x axis pixels
-        glong_size = np.nanmax(glong) - np.nanmin(glong)
+        glong_size = np.nanmax(glong_calc) - np.nanmin(glong_calc)
+        """
         if glong_size > 300:
+            print("\n\n**If gridding fails, in this case, concider using mapcenter arg and try again.**\n\n")
             right = (glong > 300) * glong
             left = (glong < 300) * glong
             if len(right) != len(left) != len(glong):
                 raise Exception("Please run again with the mapcenter argument")
             glong_size = np.nanmax(left) + 360 - np.min(right[np.nonzero(right)])
+        """
         glat_size = np.nanmax(glat) - np.nanmin(glat)
         nx = int(np.ceil(glong_size / pix_scale)) + 1  # ceil takes next greater integer
         ny = (
@@ -560,7 +631,7 @@ def gbtgridder(args):
         print("   beam_fwhm : ", beam_fwhm, "(", beam_fwhm * 60.0 * 60.0, " arcsec)")
         print("   pix_scale : ", pix_scale, "(", pix_scale * 60.0 * 60.0, " arcsec)")
         print("  gauss fwhm : ", gauss_fwhm, "(", gauss_fwhm * 60.0 * 60.0, " arcsec)")
-        print("    ref Xsky : ", refXsky)
+        print("    ref Xsky : ", refXsky, "(if negative then add 360)")
         print("    ref Ysky : ", refYsky)
         print(" center Ysky : ", centerYsky)
         print("       xsize : ", nx)
@@ -579,27 +650,6 @@ def gbtgridder(args):
         print("    ref Xsky : ", refXsky)
         print(" center Ysky : ", centerYsky)
         print("      source : ", source)
-
-    # build the initial header object
-    hdr = make_header(
-        refXsky,
-        refYsky,
-        nx,
-        ny,
-        pix_scale,
-        refXpix,
-        refYpix,
-        coordType,
-        radesys,
-        equinox,
-        rest_freq,
-        faxis,
-        beam_fwhm,
-        veldef,
-        specsys,
-        proj=args.proj,
-        verbose=verbose,
-    )
 
     # converting diameter to telescope string for print out
     if args.diameter == 100:
@@ -660,8 +710,36 @@ def gbtgridder(args):
                 return
             else:
                 answer = input(
-                    "Selection not recognized. Try again. 'Y' for yes, 'N' for no. \n"
+                    "Selection not recognized. Try again. Y for yes, N for no. \n"
                 )
+
+    # build the initial header object
+    hdr = make_header(
+        refXsky,
+        refYsky,
+        nx,
+        ny,
+        pix_scale,
+        refXpix,
+        refYpix,
+        coordType,
+        radesys,
+        equinox,
+        rest_freq,
+        faxis,
+        beam_fwhm,
+        veldef,
+        specsys,
+        proj=args.proj,
+        verbose=verbose,
+    )
+
+    wcsObj = wcs.WCS(hdr, relax=True)
+    """
+    zeros = np.zeros(len(glat))
+    glong, glat, v_pix, s_pix  = wcsObj.wcs_world2pix(glong, glat, zeros, zeros, 0)
+    glong, glat, v_pix, s_pix  = wcsObj.wcs_pix2world(glong, glat, zeros, zeros, 0)
+    """
 
     if verbose > 3 and not make_cov:
         print("\n\n Gridding")
@@ -688,7 +766,9 @@ def gbtgridder(args):
                 nx,
                 ny,
                 glong,
+                glong_calc,
                 glat,
+                wcsObj,
                 pix_scale,
                 refXsky,
                 centerYsky,

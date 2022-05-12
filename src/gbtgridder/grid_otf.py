@@ -42,7 +42,9 @@ def grid_otf(
     nx,
     ny,
     glong,
+    glong_calc,
     glat,
+    wcsObj,
     pix_scale,
     refXsky,
     centerYsky,
@@ -117,54 +119,30 @@ def grid_otf(
             print("kern must be one of gaussbessel or gauss")
         return result
 
-    # Generate image dimension
-    # start at the origin or map center then build out
-    # glong = glong*abs(np.cos(np.deg2rad(glat)))
+    """
+    glong_start = np.nanmax(glong_calc)
+    glat_start = np.nanmax(glat)
+    if nx>ny: wcs_shape = nx
+    else: wcs_shape=ny
+    glong_shape = np.arange(wcs_shape, dtype=np.float32) + glong_start#*pix_scale)
+    glat_shape = np.arange(wcs_shape, dtype=np.float32) + glat_start#*pix_scale)
+    zeros = np.zeros(len(glong_shape))
+    glong_axis, glat_axis, v_pix, s_pix = wcsObj.wcs_pix2world(glong_shape,glat_shape,zeros,zeros,0)
+    #import ipdb;ipdb.set_trace()
+    #glong_axis = np.array([i-360 if i>180 else i for i in glong_axis])
+    #glong_axis=glong_axis/np.cos(np.deg2rad(glat_axis))
+    #glong_axis = np.array([i+360 if i<0 else i for i in glong_axis])
 
-    glat_start = centerYsky  # start at the map center (or origin) and build out
-    glat_bottom = (
-        -np.arange(ny / 2, dtype=np.float32) * pix_scale
-        + glat_start  # - (1 * pix_scale)
+    if ny>nx:
+        glong_axis = glong_axis[0:-1*(wcs_shape - nx)]# remove size from both sides of glong_wcs
+    if nx>ny:
+        glat_axis = glat_axis[0:-1*(wcs_shape - ny)]# remove size from both sides of glat_wcs
+    if np.nanmin(glong_axis)<0: glong_axis = np.array([i+360 if i<0 else i for i in glong_axis])
+    """
+    glat_shape, glon_shape = np.mgrid[0:ny:1, 0:nx:1]
+    glong_axis, glat_axis = wcsObj.celestial.all_pix2world(
+        glon_shape.flatten(), glat_shape.flatten(), 0
     )
-    glat_top = np.arange(ny / 2, dtype=np.float32) * pix_scale + glat_start
-    if ny % 2 != 0:
-        glat_bottom = np.delete(glat_bottom, 0)
-    glat_bottom = np.flip(glat_bottom)
-    glat_axis = np.concatenate((glat_bottom, glat_top))
-
-    glong_start = refXsky  # starting at the center
-    if np.nanmax(glong) + glong_start > 359.0 and np.nanmin(glong) + glong_start < 100:
-        # 360-0 direction
-        glong_360_0_axis = np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
-        if nx % 2 != 0:
-            glong_360_0_axis = np.delete(glong_360_0_axis, 0)
-        glong_360_0_axis = np.flip(glong_360_0_axis)
-
-        # 0-360 direction
-        glong_0_360_axis = (
-            -np.arange(nx / 2, dtype=np.float32) * pix_scale
-            # - (1 * pix_scale)
-            + (glong_start + 360.0)
-        )
-        glong_0_360_axis = np.array(
-            [i - 360 if i > 360 else i for i in glong_0_360_axis]
-        )  # with map-center some may be shifted over the +360-0 axis
-
-        glong_axis = np.concatenate((glong_360_0_axis, glong_0_360_axis))
-        # glong_axis = glong_axis
-    else:
-        # build out from middle
-        glong_increasing = np.arange(nx / 2, dtype=np.float32) * pix_scale + glong_start
-        glong_decreasing = (
-            -np.arange(nx / 2, dtype=np.float32) * pix_scale
-            + glong_start
-            # - (1 * pix_scale)
-        )
-        if nx % 2 != 0:
-            glong_increasing = np.delete(glong_increasing, 0)
-        glong_increasing = np.flip(glong_increasing)
-        glong_axis = np.concatenate((glong_increasing, glong_decreasing))
-        # glong_axis = glong_axis
 
     gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))  # equivalent of 'b'
     # ie.       = 2.52*beam_fwhm/3.0
@@ -188,6 +166,7 @@ def grid_otf(
     if verbose > 2:
         print("Generating sparse distance matrix...")
         sys.stdout.flush()
+
     glong_diff = glong_axis[..., None] - glong
     remove = (np.abs(glong_diff) > support_distance) + np.isnan(
         glong_diff
@@ -257,6 +236,7 @@ def grid_otf(
 
     print("\n")  # just to make the outputs look nicer
     image_cube = np.array(result, dtype=np.float32)
+    # image_cube = np.moveaxis(image_cube,0,-1)
 
     # Use np.divide to catch division by zero
     image_cube = np.divide(
