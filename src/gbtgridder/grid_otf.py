@@ -119,30 +119,32 @@ def grid_otf(
             print("kern must be one of gaussbessel or gauss")
         return result
 
-    """
-    glong_start = np.nanmax(glong_calc)
-    glat_start = np.nanmax(glat)
-    if nx>ny: wcs_shape = nx
-    else: wcs_shape=ny
-    glong_shape = np.arange(wcs_shape, dtype=np.float32) + glong_start#*pix_scale)
-    glat_shape = np.arange(wcs_shape, dtype=np.float32) + glat_start#*pix_scale)
-    zeros = np.zeros(len(glong_shape))
-    glong_axis, glat_axis, v_pix, s_pix = wcsObj.wcs_pix2world(glong_shape,glat_shape,zeros,zeros,0)
-    #import ipdb;ipdb.set_trace()
-    #glong_axis = np.array([i-360 if i>180 else i for i in glong_axis])
-    #glong_axis=glong_axis/np.cos(np.deg2rad(glat_axis))
-    #glong_axis = np.array([i+360 if i<0 else i for i in glong_axis])
-
-    if ny>nx:
-        glong_axis = glong_axis[0:-1*(wcs_shape - nx)]# remove size from both sides of glong_wcs
-    if nx>ny:
-        glat_axis = glat_axis[0:-1*(wcs_shape - ny)]# remove size from both sides of glat_wcs
-    if np.nanmin(glong_axis)<0: glong_axis = np.array([i+360 if i<0 else i for i in glong_axis])
-    """
-    glat_shape, glon_shape = np.mgrid[0:ny:1, 0:nx:1]
-    glong_axis, glat_axis = wcsObj.celestial.all_pix2world(
-        glon_shape.flatten(), glat_shape.flatten(), 0
+    # wcs will only evaluate data that is broadcastable so we have to make wcsObj where nx==ny temporarily
+    if nx > ny:
+        wcs_shape = nx
+    else:
+        wcs_shape = ny
+    # make our shapes to feed to wcs
+    glong_shape = np.arange(wcs_shape, dtype=np.float32)  # + glong_start#*pix_scale)
+    glat_shape = np.arange(wcs_shape, dtype=np.float32)  # + glat_start#*pix_scale)
+    zeros_tmp = np.zeros(len(glong_shape))  # dummy axis
+    # use wcs to give us a correctly calculated position cube - accounts for things like mapcenter, projection, etc
+    glong_axis, glat_axis, tmp_1, tmp_2 = wcsObj.wcs_pix2world(
+        glong_shape, glat_shape, zeros_tmp, zeros_tmp, 0
     )
+
+    # shorten the smaller axis once we return the correct values
+    if ny > nx:
+        glong_axis = glong_axis[
+            0 : -1 * (wcs_shape - nx)
+        ]  # remove size from both sides of glong_wcs
+    if nx > ny:
+        glat_axis = glat_axis[
+            0 : -1 * (wcs_shape - ny)
+        ]  # remove size from both sides of glat_wcs
+    # account for the 0_360 axis
+    if np.nanmin(glong_axis) < 0:
+        glong_axis = np.array([i + 360 if i < 0 else i for i in glong_axis])
 
     gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))  # equivalent of 'b'
     # ie.       = 2.52*beam_fwhm/3.0
