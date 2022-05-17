@@ -210,63 +210,6 @@ def set_output_files(source, rest_freq, args, file_types, verbose=4):
     return result
 
 
-def smooth_regrid_spec(data, old_velocity_axis, new_velocity_axis):
-    """Smooth and re-grid spectra to a new velocity axis using sinc
-    interpolation.
-
-    Inputs:
-        data :: N-D array of scalars
-            The final axis should be the velocity axis
-        old_velocity_axis :: 1-D array of scalars
-            Current velocity axis
-        new_velocity_axis :: 1-D array of scalars
-            Regridded velocity axis
-    Returns: newdata
-        newdata :: N-D array of scalars
-            The final axis is the regridded velocity axis
-    """
-    old_res = old_velocity_axis[1] - old_velocity_axis[0]
-    new_res = new_velocity_axis[1] - new_velocity_axis[0]
-
-    # catch decreasing velocity axis
-    if old_res < 0.0:
-        old_velocity_axis = old_velocity_axis[::-1]
-        data = data[..., ::-1]
-        old_res = np.abs(old_res)
-    if new_res < old_res:
-        raise ValueError("Cannot smooth to a finer resolution!")
-
-    # construct sinc weights, and catch out of bounds
-    sinc_wts = np.array(
-        [
-            np.sinc((v - old_velocity_axis) / new_res)
-            if (old_velocity_axis[0] < v < old_velocity_axis[-1])
-            else np.zeros(len(old_velocity_axis)) * np.nan
-            for v in new_velocity_axis
-        ],
-        dtype="float32",
-    )
-
-    # normalize weights
-    sinc_wts = (sinc_wts.T / np.nansum(sinc_wts, axis=1)).T
-
-    # apply, handle NaNs
-    isnan = np.isnan(data)
-    data[isnan] = 0.0
-    nan_weights = np.ones(data.shape, dtype=data.dtype)
-    nan_weights[isnan] = 0.0
-    data = np.tensordot(sinc_wts, data, axes=([1], [-1]))
-    nan_weights = np.tensordot(sinc_wts, nan_weights, axes=([1], [-1]))
-
-    # replace zero weights with nan
-    nan_weights[nan_weights == 0.0] = np.nan
-    data = data / nan_weights
-
-    # move velocity axis back to end
-    data = np.moveaxis(data, 0, -1)
-    return data
-
-
 def gbtgridder(args):
     global spec
     start_time = time.time()
@@ -857,7 +800,7 @@ def gbtgridder(args):
     )
 
     # adding STOKES axis
-    #phdu = pyfits.PrimaryHDU(cube[..., None].T, header=hdr)
+    # phdu = pyfits.PrimaryHDU(cube[..., None].T, header=hdr)
     phdu = pyfits.PrimaryHDU(cube[None, ...], header=hdr)
     phdu.writeto(outputFiles["cube"])
 
