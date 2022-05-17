@@ -25,15 +25,29 @@ import sys
 import numpy as np
 import sparse
 from scipy.special import j1
+import multiprocessing as mp
 
 # speed of light (m/s)
 _C = 299792458.0
 conv_weights = None
 spec = None
+glong=None
+glong_axis=None
+support_distance=None
+idx=None
 
 
 def convolve(idx):
     return conv_weights.dot(spec[:, idx])
+
+def eval_positions(lat):
+    value = np.float32(glong_axis[lat,:, None]) - np.float32(glong)
+    remove = (np.abs(value) > support_distance) + np.isnan(
+        value
+    ) 
+    value[remove] = np.inf  # this makes the distance of the removed value infinity
+    value = sparse.COO(value, fill_value=np.inf)
+    return value
 
 
 def grid_otf(
@@ -41,7 +55,7 @@ def grid_otf(
     spec_size,
     nx,
     ny,
-    glong,
+    glong_array,
     glong_calc,
     glat,
     wcsObj,
@@ -89,8 +103,12 @@ def grid_otf(
     result = (None, None, None)
     global conv_weights
     global spec
+    global glong_axis
+    global glong 
+    global support_distance
 
     spec = spec_array  # to use the global casting
+    glong = glong_array
 
     # argument checking
     if len(spec.shape) != 2 or len(glong.shape) != 1 or len(glat.shape) != 1:
@@ -119,32 +137,36 @@ def grid_otf(
             print("kern must be one of gaussbessel or gauss")
         return result
 
-    # wcs will only evaluate data that is broadcastable so we have to make wcsObj where nx==ny temporarily
-    if nx > ny:
-        wcs_shape = nx
-    else:
-        wcs_shape = ny
-    # make our shapes to feed to wcs
-    glong_shape = np.arange(wcs_shape, dtype=np.float32)  # + glong_start#*pix_scale)
-    glat_shape = np.arange(wcs_shape, dtype=np.float32)  # + glat_start#*pix_scale)
-    zeros_tmp = np.zeros(len(glong_shape))  # dummy axis
-    # use wcs to give us a correctly calculated position cube - accounts for things like mapcenter, projection, etc
-    glong_axis, glat_axis, tmp_1, tmp_2 = wcsObj.wcs_pix2world(
-        glong_shape, glat_shape, zeros_tmp, zeros_tmp, 0
-    )
+    ## wcs will only evaluate data that is broadcastable so we have to make wcsObj where nx==ny temporarily
+    #if nx > ny:
+    #    wcs_shape = nx
+    #else:
+    #    wcs_shape = ny
+    ## make our shapes to feed to wcs
+    #glong_shape = np.arange(wcs_shape, dtype=np.float32)  # + glong_start#*pix_scale)
+    #glat_shape = np.arange(wcs_shape, dtype=np.float32)  # + glat_start#*pix_scale)
+    #zeros_tmp = np.zeros(len(glong_shape))  # dummy axis
+    ## use wcs to give us a correctly calculated position cube - accounts for things like mapcenter, projection, etc
+    #glong_axis, glat_axis, tmp_1, tmp_2 = wcsObj.wcs_pix2world(
+    #    glong_shape, glat_shape, zeros_tmp, zeros_tmp, 0
+    #)
+    glat_shape,glon_shape = np.mgrid[0:ny:1,0:nx:1]
+    glong_axis, glat_axis = wcsObj.celestial.all_pix2world(glon_shape.flatten(), glat_shape.flatten(), 0)
+    #glong_axis = glong_axis.reshape(nx,ny)
+    #glat_axis = glat_axis.reshape(nx,ny)
 
-    # shorten the smaller axis once we return the correct values
-    if ny > nx:
-        glong_axis = glong_axis[
-            0 : -1 * (wcs_shape - nx)
-        ]  # remove size from both sides of glong_wcs
-    if nx > ny:
-        glat_axis = glat_axis[
-            0 : -1 * (wcs_shape - ny)
-        ]  # remove size from both sides of glat_wcs
-    # account for the 0_360 axis
-    if np.nanmin(glong_axis) < 0:
-        glong_axis = np.array([i + 360 if i < 0 else i for i in glong_axis])
+    ## shorten the smaller axis once we return the correct values
+    #if ny > nx:
+    #    glong_axis = glong_axis[
+    #        0 : -1 * (wcs_shape - nx)
+    #    ]  # remove size from both sides of glong_wcs
+    #if nx > ny:
+    #    glat_axis = glat_axis[
+    #        0 : -1 * (wcs_shape - ny)
+    #    ]  # remove size from both sides of glat_wcs
+    ## account for the 0_360 axis
+    #if np.nanmin(glong_axis) < 0:
+    #    glong_axis = np.array([i + 360 if i < 0 else i for i in glong_axis])
 
     gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))  # equivalent of 'b'
     # ie.       = 2.52*beam_fwhm/3.0
@@ -169,21 +191,32 @@ def grid_otf(
         print("Generating sparse distance matrix...")
         sys.stdout.flush()
 
-    glong_diff = glong_axis[..., None] - glong
-    remove = (np.abs(glong_diff) > support_distance) + np.isnan(
-        glong_diff
-    )  # testing is nan and returns true or false # removing anything that is greater than the support dist
-    glong_diff[remove] = np.inf  # this makes the distance of the removed value infinity
-    glong_diff = sparse.COO(
-        glong_diff, fill_value=np.inf
-    )  # makes sparse matrix of the difference - the fill value (values with 0) is infinity so the dist is too great
-    glat_diff = glat_axis[..., None] - glat
+    # c = np.vstack((a,b[[None]])
+    glong_pool=[None,None,None]
+    glong_axis = glong_axis.reshape(ny,nx)
+    num_cpus = mp.cpu_count()
+    with mp.Pool(num_cpus) as pool:
+        chunksize = ny // num_cpus + 1
+        glong_pool = pool.map(
+            eval_positions, range(ny), chunksize=chunksize
+        )
+        pool.close()
+        pool.join()
+    glong_diff = sparse.stack(glong_pool)
+    # testing is nan and returns true or false # removing anything that is greater than the support dist
+    #glong_diff = glong_diff.reshape(ny,nx,nspec)
+      # makes sparse matrix of the difference - the fill value (values with 0) is infinity so the dist is too great
+    glat_axis = glat_axis.reshape(ny, nx)[:,0]
+    glat_diff = np.float32(glat_axis[..., None]) - np.float32(glat)
     remove = (np.abs(glat_diff) > support_distance) + np.isnan(glat_diff)
     glat_diff[remove] = np.inf
+    #glat_diff = glat_diff.reshape(ny,nx,nspec)
     glat_diff = sparse.COO(glat_diff, fill_value=np.inf)
-    image_distance2 = (
-        glong_diff[:, None, :] ** 2.0 + glat_diff[None, :, :] ** 2.0
-    )  # long dist  squared plus glat dist squared is the size of the image we want
+    #image_distance2 = (
+    #    glong_diff[:, None, :] ** 2.0 + glat_diff[None, :, :] ** 2.0
+    #)  # long dist  squared plus glat dist squared is the size of the image we want
+    #import ipdb;ipdb.set_trace()
+    image_distance2 = ( glong_diff ** 2.0 + glat_diff[:,None,:] ** 2.0)
 
     # Evaluate the Gaussian convolution weights at each data point
     if verbose > 2:
@@ -222,11 +255,12 @@ def grid_otf(
     data_weights[isnan] = 0.0
     conv_weights = conv_weights * data_weights
     # add spectral axis
-    sum_conv_weights = np.nansum(conv_weights, axis=-1).todense()[..., None]
+    #sum_conv_weights = np.nansum(conv_weights, axis=-1).todense()[..., None]
+    sum_conv_weights = np.nansum(conv_weights, axis=-1).todense()[None, ...]
 
     counterMax = "%d" % spec_size
     counterFormat = "Channel %%%dd out of %s" % (len(counterMax), counterMax)
-    result = np.empty((nx, ny, spec_size))
+    result = np.empty((spec_size, ny, nx))
     if verbose > 2:
         print("Convolving...")
         sys.stdout.flush()
@@ -234,7 +268,8 @@ def grid_otf(
         counterStr = counterFormat % (index + 1)
         sys.stdout.write("\r%s" % counterStr)
         sys.stdout.flush()
-        result[:, :, index - 1] = convolve(index - 1)
+        #result[:, :, index - 1] = convolve(index - 1)
+        result[index - 1, :, :] = convolve(index - 1)
 
     print("\n")  # just to make the outputs look nicer
     image_cube = np.array(result, dtype=np.float32)
@@ -244,7 +279,8 @@ def grid_otf(
     image_cube = np.divide(
         image_cube,
         sum_conv_weights,
-        out=np.ones((nx, ny, spec_size)) * np.nan,
+        #out=np.ones((ny, nx, spec_size)) * np.nan,
+        out=np.ones(result.shape) * np.nan,
         where=sum_conv_weights != 0.0,
     )
 

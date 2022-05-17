@@ -34,7 +34,7 @@ from .get_data import get_data
 from .grid_otf import grid_otf
 from .make_header import make_header
 
-gbtgridderVersion = "1.0"
+gbtgridderVersion = "1.1"
 _C = 299792458.0  # speed of light (m/s)
 spec = None
 
@@ -857,7 +857,8 @@ def gbtgridder(args):
     )
 
     # adding STOKES axis
-    phdu = pyfits.PrimaryHDU(cube[..., None].T, header=hdr)
+    #phdu = pyfits.PrimaryHDU(cube[..., None].T, header=hdr)
+    phdu = pyfits.PrimaryHDU(cube[None, ...], header=hdr)
     phdu.writeto(outputFiles["cube"])
 
     if not args.noweight:
@@ -869,7 +870,7 @@ def gbtgridder(args):
         wtHdr["DATAMIN"] = np.nanmin(weight)
 
         # adding STOKES axis
-        phdu = pyfits.PrimaryHDU(weight[..., None].T, header=wtHdr)
+        phdu = pyfits.PrimaryHDU(weight[None, ...], header=wtHdr)
         phdu.writeto(outputFiles["weight"])
 
     end_time = time.time()
