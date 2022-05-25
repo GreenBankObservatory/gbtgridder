@@ -4,10 +4,7 @@
 #
 #    pip-compile requirements-dev.in
 #
---extra-index-url http://galileo.gb.nrao.edu:9753/simple/
---trusted-host galileo.gb.nrao.edu
-
-backports.entry-points-selectable==1.1.0
+backports.entry-points-selectable==1.1.1
     # via virtualenv
 cfgv==3.3.0
     # via pre-commit
@@ -29,8 +26,10 @@ platformdirs==2.2.0
     # via virtualenv
 pre-commit==2.14.0
     # via -r requirements-dev.in
-pyyaml==5.4.1
-    # via pre-commit
+pyyaml==6.0
+    # via
+    #   -c requirements.txt
+    #   pre-commit
 six==1.16.0
     # via virtualenv
 toml==0.10.2

@@ -683,10 +683,9 @@ def gbtgridder(args):
             pix_scale,
             refXsky,
             centerYsky,
-            weight=weight,
+            weights=weight,
             beam_fwhm=beam_fwhm,
-            kern=args.kernel,
-            _D=args.diameter,
+            kernel_type=args.kernel,
             gauss_fwhm=gauss_fwhm,
             verbose=verbose,
         )
@@ -832,13 +831,14 @@ def main():
     # argument checking
     gbtgridder_args.check_args(args)
 
-    try:
-        print("Beginning the gridding process")
-        gbtgridder(args)
-    except ValueError:
-        if args.verbose > 1:
-            print("VALUE_ERROR in gbtgridder()")
-        sys.exit(-1)
+    gbtgridder(args)
+#    try:
+#        print("Beginning the gridding process")
+#        gbtgridder(args)
+#    except ValueError:
+#        if args.verbose > 1:
+#            print("VALUE_ERROR in gbtgridder()")
+#        sys.exit(-1)
 
 
 if __name__ == "__main__":
