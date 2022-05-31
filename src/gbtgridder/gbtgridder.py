@@ -36,7 +36,6 @@ from .make_header import make_header
 
 gbtgridderVersion = "1.1"
 _C = 299792458.0  # speed of light (m/s)
-spec = None
 
 
 def parse_channels(channelString, verbose=4):
@@ -211,7 +210,6 @@ def set_output_files(source, rest_freq, args, file_types, verbose=4):
 
 
 def gbtgridder(args):
-    global spec
     start_time = time.time()
     print("Collecting arguments and data... ")
 
@@ -318,7 +316,6 @@ def gbtgridder(args):
                 observer = dataRecord["observer"]
                 dateObs = dataRecord["date-obs"]
                 uniqueScans = np.unique(dataRecord["scans"])
-                ## adding values from sdgridder
                 spec_size = dataRecord["spec_size"]
                 rest_freq = dataRecord["restfreq"]
                 old_velocity_axis = (faxis - rest_freq) / rest_freq
@@ -402,14 +399,6 @@ def gbtgridder(args):
 
     # setting weight so we don't have to pass tsys and tint to grid_otf
     # this isn't in the dataRecord because we need it to have [idx : idx + num]
-    if glong.max() > 180:
-        glong_calc = np.array([i - 360 if i > 180 else i for i in glong])
-    else:
-        glong_calc = glong
-    # if args.proj == 'SFL':
-    #    glong = glong_calc*np.cos(np.deg2rad(glat))
-    # glong = np.array([i+360 if i<0 else i for i in glong])
-
     weight = texp / (tsys ** 2)
     if glong is None:
         if verbose > 1:
@@ -447,7 +436,7 @@ def gbtgridder(args):
             refXsky = round(np.mean(glong_calc) * 3600.0) / 3600.0
             if refXsky < 0:
                 refXsky = refXsky + 360
-    """
+
     if args.clonecube is not None:
         # use the cloned values
         cubeInfo = get_cube_info(args.clonecube, verbose=verbose)
@@ -475,7 +464,7 @@ def gbtgridder(args):
                 pix_scale = cubeInfo["pix_scale"]
                 nx = cubeInfo["xsize"]
                 ny = cubeInfo["ysize"]
-    """
+
     if pix_scale is None:  # in sdgridder this was pixel_size
         if args.pixelwidth is not None:
             # use user-supplied value, convert to degrees
@@ -494,15 +483,6 @@ def gbtgridder(args):
     # Generate image dimensions
     if args.size is None:  # number of x axis pixels
         glong_size = np.nanmax(glong_calc) - np.nanmin(glong_calc)
-        """
-        if glong_size > 300:
-            print("\n\n**If gridding fails, in this case, concider using mapcenter arg and try again.**\n\n")
-            right = (glong > 300) * glong
-            left = (glong < 300) * glong
-            if len(right) != len(left) != len(glong):
-                raise Exception("Please run again with the mapcenter argument")
-            glong_size = np.nanmax(left) + 360 - np.min(right[np.nonzero(right)])
-        """
         glat_size = np.nanmax(glat) - np.nanmin(glat)
         nx = int(np.ceil(glong_size / pix_scale)) + 1  # ceil takes next greater integer
         ny = (
@@ -513,13 +493,10 @@ def gbtgridder(args):
         ny = args.size[1]
 
     # Get convolution Gaussian FWHM (deg)
-    ## this is from Trey and it is about 0.555*beam_fwhm for gauss and 1.39 for bessel
     if args.kernel == "gauss":
         gauss_fwhm = 2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm
     elif args.kernel == "gaussbessel":
-        gauss_fwhm = (
-            2.52 * 2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm
-        )  # removed 2.52 before sqrt and it resolved
+        gauss_fwhm = 2.52 * 2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm
     else:
         gauss_fwhm = 0.0  # don't need this value for pill box
 
@@ -596,7 +573,7 @@ def gbtgridder(args):
     ## checking if the user wants to continue
     # giving the relevent info
     print(
-        "\n\n Your parameters were either user specified or assumed to be the following. Please reveiw: \n"
+        "\n\n Your parameters were either user specified or assumed to be the following. Please review: \n"
     )
     print_list = [
         ["Kernel", args.kernel],
@@ -660,11 +637,6 @@ def gbtgridder(args):
     )
 
     wcsObj = wcs.WCS(hdr, relax=True)
-    """
-    zeros = np.zeros(len(glat))
-    glong, glat, v_pix, s_pix  = wcsObj.wcs_world2pix(glong, glat, zeros, zeros, 0)
-    glong, glat, v_pix, s_pix  = wcsObj.wcs_pix2world(glong, glat, zeros, zeros, 0)
-    """
 
     if verbose > 3:
         print("\n\n Gridding")
@@ -673,18 +645,16 @@ def gbtgridder(args):
     try:  # pass all the info to the grid_otf function
         (cube, weight, final_fwhm) = grid_otf(
             spec,
-            spec_size,
             nx,
             ny,
             glong,
-            glong_calc,
             glat,
             wcsObj,
             pix_scale,
             refXsky,
             centerYsky,
-            weights=weight,
             beam_fwhm=beam_fwhm,
+            weights=weight,
             kernel_type=args.kernel,
             gauss_fwhm=gauss_fwhm,
             verbose=verbose,
@@ -832,13 +802,6 @@ def main():
     gbtgridder_args.check_args(args)
 
     gbtgridder(args)
-#    try:
-#        print("Beginning the gridding process")
-#        gbtgridder(args)
-#    except ValueError:
-#        if args.verbose > 1:
-#            print("VALUE_ERROR in gbtgridder()")
-#        sys.exit(-1)
 
 
 if __name__ == "__main__":
