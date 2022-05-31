@@ -1,26 +1,23 @@
-How to Get and Use GBTGridder_matrix
+How to Get and Use the GBTGridder
 =====================================
 
-***Note: anything in `*...*` needs to be replaced with what is relevant to you and your project***
+***Note: anything in `<*...*>` needs to be replaced with what is relevant to you and your project***
 This tutorial assumes little is known about navigating a terminal
 
 1.  To get the gridder
 
 .. code-block:: bash
 
-    # In a fresh shell
-    alias python=/home/gbors/bin/python3.8
     # Then do the below
     git clone https://github.com/GreenBankObservatory/gbtgridder
     cd gbtgridder
-    git checkout refactor-dev
-    python -m venv .venv
-    source .venv/bin/activate
-    # Not required, but recommended
+    # make and source a new venv
+    ~gbosdd/pythonversions/3.9/bin/python -m venv <path/vevnName>
+    source <path/vevnName>/bin/activate
     pip install -U pip setuptools wheel build
     pip install -r requirements-dev.txt
 
-2.  For more info on the gridder run the command `$ gbtgridder`
+2.  For more info on the gridder run the command `$ gbtgridder --help`
 
     - this will give you information on what arguments to use and how to use them
 
@@ -28,12 +25,12 @@ This tutorial assumes little is known about navigating a terminal
 
     - this command will also show the version of the gridder you are using
 
-    * currently it is `version 1.0`
+    * currently it is `version 1.1`
 
 
 3.  To run the gridder
 
-- ex. `$ gbtgridder_matrix --noline --noweight --nocont -o *output file name* --pixelwidth 105.0 --mapcenter 2.0 3.0 -a 70 -k gaussbessel --size 962 860 --channels "2300:2480" ./*fits file.fits* --verbose 5`
+- ex. `$ gbtgridder --noweight -o *output file name* --pixelwidth 105.0 --mapcenter 2.0 3.0 -a 70 -k gaussbessel --size 962 860 --channels "2300:2480" ./*fitsFile.fits* --verbose 5`
 
 .. code-block:: bash
 
@@ -109,7 +106,7 @@ This tutorial assumes little is known about navigating a terminal
 
 4.  Reviewing the output files
 
-In the above example, only cube output was specified so the output file is only `*file output name*_cube.fits`. We want to look at this data
+In the above example, only cube output was specified, so the output file is only `*file output name*_cube.fits`. We want to look at this data
         1.  Open casaviewer using `casaviewer`
         2.  Select your file
         3.  Select the appropriate file type - mine was 'raster'

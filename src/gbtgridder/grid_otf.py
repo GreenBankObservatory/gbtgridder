@@ -61,7 +61,7 @@ def grid_otf(
     """Grid individual spectra onto a specified regular grid using the package
     cygrid https://github.com/bwinkel/cygrid/tree/master/cygrid.
 
-    Version 1.0 based on version 0.5 by Bob Garwood (NRAO) and cygrid by bwinkel
+    Version 1.1 based on version 0.5 by Bob Garwood (NRAO) and cygrid by bwinkel
     For Verison 1.0 support reach out to Kathlyn Purcell (kpurcell@nrao.edu)
 
     Inputs:
@@ -126,11 +126,11 @@ def grid_otf(
         weight_array = weights
 
     # Remove NaN values from the data before gridding.
-    if np.isnan(np.sum(spec_array)):
+    if np.isnan(np.sum(spec)):
         if verbose > 4:
             print("Setting NaN values to 0")
-        weight_array[np.isnan(spec_array)] = 0
-        spec_array[np.isnan(spec_array)] = 0
+        weight_array[np.isnan(spec)] = 0
+        spec[np.isnan(spec)] = 0
 
     gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))  # equivalent of 'b'
     # ie.       = 2.52*beam_fwhm/3.0

@@ -420,6 +420,12 @@ def gbtgridder(args):
         avg_faxis = (faxis[0] + faxis[len(faxis) - 1]) / 2
         beam_fwhm = np.rad2deg(1.2 * _C / (_D * avg_faxis))
 
+    # account for a glong value that crossed the 0-360 axis
+    if glong.max() > 180:
+        glong_calc = np.array([i - 360 if i > 180 else i for i in glong])
+    else:
+        glong_calc = glong
+
     pix_scale = None
     nx = None
     ny = None
