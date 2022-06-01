@@ -25,17 +25,8 @@
 import cygrid
 import numpy as np
 
-#import sparse
-#from scipy.special import j1
-
-
 # speed of light (m/s)
 _C = 299792458.0
-conv_weights = None
-spec = None
-glong = None
-glong_axis = None
-support_distance = None
 
 
 def prepare_header(wcsObj, nx, ny, nchan):
@@ -133,40 +124,54 @@ def grid_otf(
 
     # Handle the weights.
     if weights.shape != spec_array.shape:
+        if verbose > 4:
+            print("Reshaping weights")
         if weights.shape[0] == spec_array.shape[0]:
             weight_array = weights[..., None] + np.empty(nchan_data, dtype=np.float32)
     else:
         weight_array = weights
 
-    gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))  # equivalent of 'b'
-    # ie.       = 2.52*beam_fwhm/3.0
+
+    # Remove NaN values from the data before gridding.
+    if np.isnan(np.sum(spec_array)):
+        if verbose > 4:
+            print("Setting NaN values to 0")
+        weight_array[np.isnan(spec_array)] = 0
+        spec_array[np.isnan(spec_array)] = 0
+
+    # Final cube spatial resolution.
     final_fwhm = np.sqrt(
         beam_fwhm ** 2.0 + gauss_fwhm ** 2.0
-    )  # verison0.5 equivialent of scale_fwhm*beam_fwhm
+    )
 
-    # Get convolution Bessel function width (deg)
-    # from Mangum, Emerson, Greisen (2007)  #version0.5 equivialent of 'a'
-    bessel_width = 1.55 * beam_fwhm / 3.0
+    # Support distance for convolution,
+    # this preserves the "peak" of a point source.
+    support_distance = 3.0*pix_scale
 
-    # Support distance for convolution
-    support_distance = beam_fwhm
-
-    # account for the 'pill box' kernel
-    if kernel_type == "nearest":
-        support_distance = 1.0 * pix_scale  # one pixel
+    ## account for the 'pill box' kernel
+    #if kernel_type == "nearest":
+    #    support_distance = 1.0 * pix_scale  # one pixel
 
     header = prepare_header(wcsObj, nx, ny, nchan_data)
 
     # Set up kernel parameters.
     if kernel_type == "gauss":
         kernel_type = "gauss1d"
+        gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
         kernel_params = (gauss_sigma)
+        # Resolution of the healpix lookup table.
+        # Value recommended by Winkel et al. (2016)
+        # for Gaussian beams.
+        hpx_maxres = gauss_sigma / 2.
     elif kernel_type == "gaussbessel":
-        kernel_params = (bessel_width, gauss_sigma)
+        kernel_type = "gaussbessel"
+        # Convolution function width for a Gaussian tapered Bessel
+        # from Mangum, Emerson, Greisen (2007).
+        kernel_params = (beam_fwhm/3., 2.52, 1.55)
+        hpx_maxres = beam_fwhm/3./2.
     kernel_support = support_distance
-    hpx_maxres = gauss_sigma / 2.
 
-    # Define a cygrid.gridder object and its kernel.
+    # Define a `cygrid.gridder` object and its kernel.
     mygridder = cygrid.WcsGrid(header)
     mygridder.set_kernel(kernel_type,
                          kernel_params,
@@ -175,6 +180,8 @@ def grid_otf(
                          )
 
     # Do the gridding.
+    if verbose > 1:
+        print("Running cygrid on the data")
     mygridder.grid(glon, glat, spec_array, weights=weight_array)
 
     # Query results.

@@ -36,7 +36,6 @@ from .make_header import make_header
 
 gbtgridderVersion = "1.1"
 _C = 299792458.0  # speed of light (m/s)
-spec = None
 
 
 def parse_channels(channelString, verbose=4):
@@ -211,7 +210,8 @@ def set_output_files(source, rest_freq, args, file_types, verbose=4):
 
 
 def gbtgridder(args):
-    global spec
+    """"""
+
     start_time = time.time()
     print("Collecting arguments and data... ")
 
@@ -410,7 +410,7 @@ def gbtgridder(args):
     #    glong = glong_calc*np.cos(np.deg2rad(glat))
     # glong = np.array([i+360 if i<0 else i for i in glong])
 
-    weight = texp / (tsys ** 2)
+    weight = texp / ((tsys) ** 2)
     if glong is None:
         if verbose > 1:
             print(
@@ -447,6 +447,13 @@ def gbtgridder(args):
             refXsky = round(np.mean(glong_calc) * 3600.0) / 3600.0
             if refXsky < 0:
                 refXsky = refXsky + 360
+
+    # Avoid using 0,0 as map center.
+    # `cygrid` does not handle this case well.
+    if refXsky == 0:
+        refXsky += 1e-8
+    if refYsky == 0:
+        refYsky += 1e-8
     """
     if args.clonecube is not None:
         # use the cloned values
@@ -518,8 +525,8 @@ def gbtgridder(args):
         gauss_fwhm = 2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm
     elif args.kernel == "gaussbessel":
         gauss_fwhm = (
-            2.52 * 2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm
-        )  # removed 2.52 before sqrt and it resolved
+            2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm
+        )
     else:
         gauss_fwhm = 0.0  # don't need this value for pill box
 
@@ -596,7 +603,7 @@ def gbtgridder(args):
     ## checking if the user wants to continue
     # giving the relevent info
     print(
-        "\n\n Your parameters were either user specified or assumed to be the following. Please reveiw: \n"
+        "\n\n Your parameters were either user specified or assumed to be the following. Please review: \n"
     )
     print_list = [
         ["Kernel", args.kernel],
