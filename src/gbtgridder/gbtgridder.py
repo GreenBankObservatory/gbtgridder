@@ -34,7 +34,7 @@ from .get_data import get_data
 from .grid_otf import grid_otf
 from .make_header import make_header
 
-gbtgridderVersion = "1.1"
+gbtgridderVersion = "1.0"
 _C = 299792458.0  # speed of light (m/s)
 
 
@@ -303,7 +303,6 @@ def gbtgridder(args):
                 chanStart = dataRecord["chanStart"]
                 chanStop = dataRecord["chanStop"]
                 wt_value = dataRecord["wt"]
-                # chanWidth = dataRecord["nchan"]
                 faxis = dataRecord["freq"]
                 source = dataRecord["source"]
                 dataUnits = dataRecord["units"]
@@ -399,7 +398,6 @@ def gbtgridder(args):
     if verbose > 3:
         print("Data Extracted Successfully.")
 
-
     if glong is None:
         if verbose > 1:
             print(
@@ -454,7 +452,6 @@ def gbtgridder(args):
     if refYsky == 0:
         refYsky += 1e-8
 
-    """
     if args.clonecube is not None:
         # use the cloned values
         cubeInfo = get_cube_info(args.clonecube, verbose=verbose)
@@ -482,14 +479,15 @@ def gbtgridder(args):
                 pix_scale = cubeInfo["pix_scale"]
                 nx = cubeInfo["xsize"]
                 ny = cubeInfo["ysize"]
-    """
 
     if pix_scale is None:
         if args.pixelwidth is not None:
             # use user-supplied value, convert to degrees
             pix_scale = args.pixelwidth / 3600.0
             if pix_scale > beam_fwhm / 2:
-                raise ValueError(f"Pixel scale is larger than FWHM/2={beam_fwhm / 2 * 3600 : .2f}")
+                raise ValueError(
+                    f"Pixel scale is larger than FWHM/2={beam_fwhm / 2 * 3600 : .2f}"
+                )
         else:
             # find the cell size, first from the beam_fwhm
             pixPerBeam = 3.0
@@ -499,9 +497,11 @@ def gbtgridder(args):
 
             pix_scale = beam_fwhm / pixPerBeam
 
-    if args.kernel == "nearest" and pix_scale > beam_fwhm/5:
-        warnings.warn(f"Pixel scale is larger than FWHM/5={beam_fwhm / 5 * 3600 : .2f} using nearest kernel"
-                       "resulting cube might contain spurious data. Try using a smaller pixel scale.")
+    if args.kernel == "nearest" and pix_scale > beam_fwhm / 5:
+        warnings.warn(
+            f"Pixel scale is larger than FWHM/5={beam_fwhm / 5 * 3600 : .2f} using nearest kernel"
+            "resulting cube might contain spurious data. Try using a smaller pixel scale."
+        )
 
     # Generate image dimensions
     if args.size is None:  # number of x axis pixels
@@ -519,9 +519,7 @@ def gbtgridder(args):
     if args.kernel == "gauss":
         gauss_fwhm = 2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm
     elif args.kernel == "gaussbessel":
-        gauss_fwhm = (
-            2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm
-        )
+        gauss_fwhm = 2.0 * np.sqrt(np.log(2.0) / 9) * beam_fwhm
     else:
         gauss_fwhm = 0.0  # don't need this value for pill box
 

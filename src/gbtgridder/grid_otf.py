@@ -20,7 +20,6 @@
 #       P. O. Box 2
 #       Green Bank, WV 24944-0002 USA
 
-# import multiprocessing as mp
 
 import cygrid
 import numpy as np
@@ -136,10 +135,7 @@ def grid_otf(
         spec[np.isnan(spec)] = 0
 
     # Final spatial resolution.
-    final_fwhm = np.sqrt(
-        beam_fwhm ** 2.0 + gauss_fwhm ** 2.0
-    )
-
+    final_fwhm = np.sqrt(beam_fwhm ** 2.0 + gauss_fwhm ** 2.0)
 
     header = prepare_header(wcsObj, nx, ny, nchan_data)
 
@@ -147,31 +143,31 @@ def grid_otf(
     gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
     if kernel_type == "gauss":
         kernel_type = "gauss1d"
-        kernel_params = (gauss_sigma)
+        kernel_params = gauss_sigma
         # Resolution of the healpix lookup table.
         # Value recommended by Winkel et al. (2016)
         # for Gaussian beams.
-        hpx_maxres = gauss_sigma / 5.
+        hpx_maxres = gauss_sigma / 5.0
         # Support distance for convolution,
         # same as v0.5 of the `gbtgridder`.
-        support_distance = 3.*gauss_fwhm
+        support_distance = 3.0 * gauss_fwhm
     elif kernel_type == "gaussbessel":
         kernel_type = "gaussbessel"
         # Convolution function width for a Gaussian tapered Bessel
         # from Mangum, Emerson, Greisen (2007).
-        kernel_params = (beam_fwhm/3., 2.52, 1.55)
-        hpx_maxres = beam_fwhm/3./2.
+        kernel_params = (beam_fwhm / 3.0, 2.52, 1.55)
+        hpx_maxres = beam_fwhm / 3.0 / 2.0
         # Support distance for convolution,
         # this preserves the "peak" of a point source (?).
-        support_distance = 3.*gauss_fwhm
+        support_distance = 3.0 * gauss_fwhm
     elif kernel_type == "nearest":
-        #kernel_type = "gauss1d"
-        #kernel_params = (gauss_sigma)
-        #hpx_maxres = gauss_sigma / 5
+        # kernel_type = "gauss1d"
+        # kernel_params = (gauss_sigma)
+        # hpx_maxres = gauss_sigma / 5
         kernel_type = "gaussbessel"
-        kernel_params = (beam_fwhm/3., 2.52, 1.55)
-        hpx_maxres = beam_fwhm/3./2.
-        support_distance = 0.5*pix_scale
+        kernel_params = (beam_fwhm / 3.0, 2.52, 1.55)
+        hpx_maxres = beam_fwhm / 3.0 / 2.0
+        support_distance = 0.5 * pix_scale
 
     kernel_support = support_distance
 

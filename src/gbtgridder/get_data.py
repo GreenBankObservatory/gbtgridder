@@ -178,7 +178,6 @@ def get_data(
         # chan selection happens here
         result["data"] = thisTabData.field("data")[:, chanStart : (chanStop + 1)]
         # do any channel averaging here
-        # import ipdb; ipdb.set_trace()
         if average is not None:
             (result["data"], result["freq"]) = boxcar(
                 result["data"], result["freq"], average
