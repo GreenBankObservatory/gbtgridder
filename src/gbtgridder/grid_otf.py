@@ -141,26 +141,20 @@ def grid_otf(
     )
 
 
-    ## account for the 'pill box' kernel
-    #if kernel_type == "nearest":
-    #    support_distance = 1.0 * pix_scale  # one pixel
-
     header = prepare_header(wcsObj, nx, ny, nchan_data)
 
     # Set up kernel parameters.
+    gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
     if kernel_type == "gauss":
         kernel_type = "gauss1d"
-        gauss_sigma = gauss_fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
         kernel_params = (gauss_sigma)
-        print(f"Kernel params: {kernel_params}")
         # Resolution of the healpix lookup table.
         # Value recommended by Winkel et al. (2016)
         # for Gaussian beams.
         hpx_maxres = gauss_sigma / 5.
         # Support distance for convolution,
         # same as v0.5 of the `gbtgridder`.
-        #support_distance = 10.0*pix_scale
-        support_distance = 3*gauss_fwhm
+        support_distance = 3.*gauss_fwhm
     elif kernel_type == "gaussbessel":
         kernel_type = "gaussbessel"
         # Convolution function width for a Gaussian tapered Bessel
@@ -168,8 +162,17 @@ def grid_otf(
         kernel_params = (beam_fwhm/3., 2.52, 1.55)
         hpx_maxres = beam_fwhm/3./2.
         # Support distance for convolution,
-        # this preserves the "peak" of a point source.
-        support_distance = 3.0*pix_scale
+        # this preserves the "peak" of a point source (?).
+        support_distance = 3.*gauss_fwhm
+    elif kernel_type == "nearest":
+        #kernel_type = "gauss1d"
+        #kernel_params = (gauss_sigma)
+        #hpx_maxres = gauss_sigma / 5
+        kernel_type = "gaussbessel"
+        kernel_params = (beam_fwhm/3., 2.52, 1.55)
+        hpx_maxres = beam_fwhm/3./2.
+        support_distance = 0.5*pix_scale
+
     kernel_support = support_distance
 
     # Define a `cygrid.gridder` object and its kernel.

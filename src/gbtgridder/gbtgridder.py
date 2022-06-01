@@ -484,12 +484,12 @@ def gbtgridder(args):
                 ny = cubeInfo["ysize"]
     """
 
-    if pix_scale is None:  # in sdgridder this was pixel_size
+    if pix_scale is None:
         if args.pixelwidth is not None:
             # use user-supplied value, convert to degrees
             pix_scale = args.pixelwidth / 3600.0
             if pix_scale > beam_fwhm / 2:
-                raise ValueError("Pixel scale is larger than FWHM/2")
+                raise ValueError(f"Pixel scale is larger than FWHM/2={beam_fwhm / 2 * 3600 : .2f}")
         else:
             # find the cell size, first from the beam_fwhm
             pixPerBeam = 3.0
@@ -498,6 +498,10 @@ def gbtgridder(args):
                 pixPerBeam = 2.0
 
             pix_scale = beam_fwhm / pixPerBeam
+
+    if args.kernel == "nearest" and pix_scale > beam_fwhm/5:
+        warnings.warn(f"Pixel scale is larger than FWHM/5={beam_fwhm / 5 * 3600 : .2f} using nearest kernel"
+                       "resulting cube might contain spurious data. Try using a smaller pixel scale.")
 
     # Generate image dimensions
     if args.size is None:  # number of x axis pixels
