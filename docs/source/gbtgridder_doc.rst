@@ -1,18 +1,18 @@
-GBTGridder_Matrix Docs (In dev stage)
+GBTGridder_Cygrid Docs (In dev stage)
 ======================================
 
-**For what:** GBTGridder Version 1.0, matrix version
+**For what:** GBTGridder Version 1.0, cygrid version
 
 **Based On:** GBTGridder Version 0.5 https://github.com/GreenBankObservatory/gbtgridder branch: `master`
 
-**Where:** https://github.com/GreenBankObservatory/gbtgridder branch: `refactor-dev`
+**Where:** https://github.com/GreenBankObservatory/gbtgridder branch: `cygrid`
 
 **Tested using:** `14B_076_2_edit_shifted.fits` and `14A_302+14B_461_edit_v2_shifted.fits` + `15B_139_edit_v2_shifted.fits`
 
 **Authors:
 Science Advisor:** Jay Lockman,
-**Matrix Version Author:** Trey Wenger,
-**GBTGridder/Matrix Version Author:** Kasey Purcell ([kpurcell@nrao.edu])
+**Cygrid Author:** Benjamin Winkel,
+**GBTGridder/Cygrid Version Author:** Kasey Purcell ([kpurcell@nrao.edu]), and Pedro Salas
 
 
 Important Links/Information
@@ -35,7 +35,9 @@ Running Each
 
 .. code-block:: bash
 
-    gbtgridder<_matrix> --noline --noweight --nocont -o 14B_076_2_edit_shifted --pixelwidth 105.0 --size 926 860 --mapcenter 2.0 3.0 -a 70 -k gaussbessel --channels '2300:2480' 14B_076_2_edit_shifted.fits
+    # all arguments should be specific to the project, many more are also available
+    # use `gbtgridder --help` to learn more
+    gbtgridder --noweight [--nocont --noline] -o 14B_076_2_edit_shifted --pixelwidth 105.0 --size 926 860 --mapcenter 2.0 3.0 -a 70 -k gaussbessel --channels '2300:2480' 14B_076_2_edit_shifted.fits
 
 What to expect from original gridder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -75,12 +77,12 @@ What to expect from original gridder
     Row   4 out of 926
 
 
-What to expect from the new matrix gbtgridder
+What to expect from the new cygrid gbtgridder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-    $ gbtgridder_matrix --noline --noweight --nocont -o 14B_076_2_edit_shifted --pixelwidth 105.0 --mapcenter 2.0 3.0 -a 70 -k gaussbessel --size 926 860 --channels "2300:2480" ./14B_076_2_edit_shifted.fits --verbose 5
+    $ gbtgridder --noweight -o 14B_076_2_edit_shifted --pixelwidth 105.0 --mapcenter 2.0 3.0 -a 70 -k gaussbessel --size 926 860 --channels "2300:2480" ./14B_076_2_edit_shifted.fits --verbose 5
 
     channelString (2300:2480)
     Loading data ...
