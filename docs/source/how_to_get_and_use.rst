@@ -11,11 +11,14 @@ This tutorial assumes little is known about navigating a terminal
     # Then do the below
     git clone https://github.com/GreenBankObservatory/gbtgridder
     cd gbtgridder
+    # get onto the v1.0 branch
+    git checkout cygrid
     # make and source a new venv
-    ~gbosdd/pythonversions/3.9/bin/python -m venv <path/vevnName>
+    ~gbosdd/pythonversions/3.8/bin/python -m venv <path/vevnName>
     source <path/vevnName>/bin/activate
     pip install -U pip setuptools wheel build
-    pip install -r requirements-dev.txt
+    pip install -r requirements.txt
+    pip install -e .
 
 2.  For more info on the gridder run the command `$ gbtgridder --help`
 
@@ -25,7 +28,7 @@ This tutorial assumes little is known about navigating a terminal
 
     - this command will also show the version of the gridder you are using
 
-    * currently it is `version 1.1`
+    * currently it is `version 1.0`
 
 
 3.  To run the gridder
