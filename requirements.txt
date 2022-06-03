@@ -4,6 +4,9 @@
 #
 #    pip-compile
 #
+--extra-index-url http://galileo.gb.nrao.edu:9753/simple/
+--trusted-host galileo.gb.nrao.edu
+
 astropy==5.1
     # via
     #   cygrid
