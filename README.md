@@ -39,7 +39,7 @@ This tutorial assumes little is known about navigating a terminal
 
 3.  To run the gridder
 
-- ex. `$ gbtgridder --noweight -o my_first_grid ./test/unit_tests/test.fits --verbose 5`
+- ex. `$ gbtgridder-test --noweight -o my_first_grid ./test/unit_tests/test.fits --verbose 5`
 
 ```bash
     Collecting arguments and data...
@@ -146,53 +146,56 @@ The menu bar above the image can be clicked by the three mouse buttons (right,le
 
 # Appendix
 
-## Printout for `gbtgridder_matrix`
+## Printout for `gbtgridder-test --help`
 
 
 ```bash
-    (gbtgridder-venv-3.8.5) [kpurcell@belinda /home/sandboxes/kpurcell/repos/gbtgridder/gbtgridder/src]$ gbtgridder_matrix
-    usage: gbtgridder_matrix3_8.py [-h] [-c CHANNELS] [-a AVERAGE] [-s SCANS] [-m MAXTSYS] [-z MINTSYS] [--clobber] [-k {gauss,gaussbessel,nearest}] [--diameter DIAMETER] [-o OUTPUT] [--mapcenter LONG LAT]
-                                   [--size X Y] [--pixelwidth PIXELWIDTH] [--restfreq RESTFREQ] [-p {SFL,TAN}] [--clonecube CLONECUBE] [--noweight] [--noline] [--nocont] [-v VERBOSE] [-V]
-                                   SDFITSfiles [SDFITSfiles ...]
+(gbtgridder_venv_py38) [kpurcell@belinda /home/sandboxes/kpurcell/gbtgridder]$ gbtgridder-test --help
+usage: gbtgridder [-h] [-c CHANNELS] [-a AVERAGE] [-s SCANS] [-m MAXTSYS] [-z MINTSYS] [--clobber] [-k {gauss,gaussbessel,nearest}] [--diameter DIAMETER] [-o OUTPUT] [--mapcenter LONG LAT]
+                  [--size X Y] [--pixelwidth PIXELWIDTH] [--beam_fwhm BEAM_FWHM] [--restfreq RESTFREQ] [-p {SFL,TAN}] [--clonecube CLONECUBE] [--autoConfirm] [--noweight] [-v VERBOSE] [-V]
+                  SDFITSfiles [SDFITSfiles ...]
 
-    positional arguments:
-      SDFITSfiles           The calibrated SDFITS files to use.
+positional arguments:
+  SDFITSfiles           The calibrated SDFITS files to use.
 
-    optional arguments:
-      -h, --help            show this help message and exit
-      -c CHANNELS, --channels CHANNELS
-                            Optional channel range to use. '<start>:<end>' counting from 0.
-      -a AVERAGE, --average AVERAGE
-                            Optionally average channels, keeping only number of channels/naverage channels
-      -s SCANS, --scans SCANS
-                            Only use data from these scans. comma separated list or <start>:<end> range syntax or combination of both
-      -m MAXTSYS, --maxtsys MAXTSYS
-                            max Tsys value to use
-      -z MINTSYS, --mintsys MINTSYS
-                            min Tsys value to use
-      --clobber             Overwrites existing output files if set.
-      -k {gauss,gaussbessel,nearest}, --kernel {gauss,gaussbessel,nearest}
-                            gridding kernel, default is gauss
-      --diameter DIAMETER   Diameter of the telescope the observations were taken on.
-      -o OUTPUT, --output OUTPUT
-                            root output name, instead of source and rest frequency
-      --mapcenter LONG LAT  Map center in longitude and latitude of coordinate type used in data (RA/DEC, Galactic, etc) (degrees)
-      --size X Y            Image X,Y size (pixels)
-      --pixelwidth PIXELWIDTH
-                            Image pixel width on sky (arcsec)
-      --restfreq RESTFREQ   Rest frequency (MHz)
-      -p {SFL,TAN}, --proj {SFL,TAN}
-                            Projection to use for the spatial axes, default is SFL
-      --clonecube CLONECUBE
-                            A FITS cube to use to set the image size and WCS parameters in the spatial dimensions. The cube must have the same axes produced here, the spatial axes must be of the same type as found
-                            in the data to be gridded, and the projection used in the cube must be either TAN, SFL, or GLS [which is equivalent to SFL]. Default is to construct the output cube using values
-                            appropriate for gridding all of the input data. Use of --clonecube overrides any use of --size, --pixelwidth, --mapcenter and --proj arguments.
-      --noweight            Set this to turn off production of the output weight cube
-      --noline              Set this to turn off prodution of the output line cube
-      --nocont              Set this to turn off prodution of the output 'cont' image
-      -v VERBOSE, --verbose VERBOSE
-                            set the verbosity level-- 0-1:none, 2:errors only, 3:+warnings, 4(default):+user info, 5:+debug
-      -V, --version         show program's version number and exit
+optional arguments:
+  -h, --help            show this help message and exit
+  -c CHANNELS, --channels CHANNELS
+                        Optional channel range to use. '<start>:<end>' counting from 0.
+  -a AVERAGE, --average AVERAGE
+                        Optionally average channels, keeping only number of channels/naverage channels
+  -s SCANS, --scans SCANS
+                        Only use data from these scans. comma separated list or <start>:<end> range syntax or combination of both
+  -m MAXTSYS, --maxtsys MAXTSYS
+                        max Tsys value to use
+  -z MINTSYS, --mintsys MINTSYS
+                        min Tsys value to use
+  --clobber             Overwrites existing output files if set.
+  -k {gauss,gaussbessel,nearest}, --kernel {gauss,gaussbessel,nearest}
+                        gridding kernel, default is gauss
+  --diameter DIAMETER   Diameter of the telescope the observations were taken on.
+  -o OUTPUT, --output OUTPUT
+                        root output name, instead of source and rest frequency
+  --mapcenter LONG LAT  Map center in longitude and latitude of coordinate type used in data (RA/DEC, Galactic, etc) (degrees)
+  --size X Y            Image X,Y size (pixels)
+  --pixelwidth PIXELWIDTH
+                        Image pixel width on sky (arcsec)
+  --beam_fwhm BEAM_FWHM
+                        Specify the BEAM_FWHM (HPBW) value, default calculated per telscope diameter
+  --restfreq RESTFREQ   Rest frequency (MHz)
+  -p {SFL,TAN}, --proj {SFL,TAN}
+                        Projection to use for the spatial axes, default is SFL
+  --clonecube CLONECUBE
+                        A FITS cube to use to set the image size and WCS parameters in the spatial dimensions. The cube must have the same axes produced here, the spatial axes must be of
+                        the same type as found in the data to be gridded, and the projection used in the cube must be either TAN, SFL, or GLS [which is equivalent to SFL]. Default is to
+                        construct the output cube using values appropriate for gridding all of the input data. Use of --clonecube overrides any use of --size, --pixelwidth, --mapcenter and
+                        --proj arguments.
+  --autoConfirm         Set this to True if you'd like to auto-confirm the program stop and move straight into gridding
+  --noweight            Set this to turn off production of the output weight cube
+  -v VERBOSE, --verbose VERBOSE
+                        set the verbosity level-- 0-1:none, 2:errors only, 3:+warnings, 4(default):+user info, 5:+debug
+  -V, --version         show program's version number and exit
 
-    gbtgridder version: 1.0
+gbtgridder version: 1.0
+
 ```
