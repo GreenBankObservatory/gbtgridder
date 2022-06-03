@@ -22,7 +22,8 @@ This tutorial assumes little is known about navigating a terminal
     ~gbosdd/pythonversions/3.9/bin/python -m venv <path/vevnName>
     source <path/vevnName>/bin/activate
     pip install -U pip setuptools wheel build
-    pip install -r requirements-dev.txt
+    pip install -r requirements.txt
+    pip install -e .
 ```
 
 2.  For more info on the gridder run the command `$ gbtgridder --help`
@@ -33,79 +34,81 @@ This tutorial assumes little is known about navigating a terminal
 
     - this command will also show the version of the gridder you are using
 
-    * currently it is `version 1.1`
+    * currently it is `version 1.0`
 
 
 3.  To run the gridder
 
-- ex. `$ gbtgridder --noweight -o my_first_grid --pixelwidth 105.0 --mapcenter 2.0 3.0 -a 70 -k gaussbessel --size 962 860 --channels "2300:2480" ./*fitsFile.fits* --verbose 5`
+- ex. `$ gbtgridder --noweight -o my_first_grid ./test/unit_tests/test.fits --verbose 5`
 
 ```bash
-   channelString (2300:2480)
-   Loading data ...
-   	./14B_076_2_edit_shifted.fits
+    Collecting arguments and data...
+    Loading data ...
+        ./test/unit_tests/test.fits
+    outname root :  my_first_grid_
+         clobber :  False
 ```
 
 - Once it reads in the fits header data it will display several crucial parameters and prompt you if you'd like to continue.
 
 ```bash
-   outname root :  14B_076_2_edit_shifted_
-   	 clobber :  False
-   Data summary ...
-      scans :  717:726,728:732,734:751,753:784,809:816,818:824,1306:1324,1327:1331,1334:1335,1407:1445,1447:1452,1506:1538,1540:1559,1610:1613,1706:1728,1730:1736,1738:1743,1745:1748,1750:1762,1806:1814,1816:1822,1824:1831,1833:1840,1906:1961,2007:2062,2106:2162,2201:2219,2305:2321,2410:2435,2437:2452,2454:2461,2505:2530,2532:2536,2607:2642,2707:2780,2807:2891,2907:2927,2929:2967
-      channels : 2299:2479
-      no tsys selection
-      spectra to grid :  107429
+Data Extracted Successfully.
+Data summary ...
+   scans :  1937:1970
+   channels : 0:449
+   no tsys selection
+   spectra to grid :  4692
 
-    Map info ...
-      beam_fwhm :  0.1451149459394181 ( 522.4138053819051  arcsec)
-      pix_scale :  0.029166666666666667 ( 105.0  arcsec)
-     gauss fwhm :  0.08054407825984171 ( 289.95868173543016  arcsec)
-   	   xsize :  962
-   	   ysize :  860
-   		  f0 :  1420388838.4948816
-   	delta(f) :  -100141.86655688286
-     num. chan  :  2
-   	  source :  G03+4.0    STCOR
-    frest (MHz) :  1420.4058
+ Map info ...
+   beam_fwhm :  0.1451038186298307 ( 522.3737470673906  arcsec)
+   pix_scale :  0.0483679395432769 ( 174.12458235579686  arcsec)
+  gauss fwhm :  0.08053790219790387 ( 289.93644791245396  arcsec)
+    ref Xsky :  350.99805555555554 (if negative then add 360)
+    ref Ysky :  0.0
+ center Ysky :  6.998333333333333
+       xsize :  43
+       ysize :  43
+    ref Xpix :  21.5
+    ref Ypix :  -122.18950712840723
+          f0 :  1423726423.8457916
+    delta(f) :  -14306.012469291687
+  num. chan  :  450
+      source :  G351.0+7.0 STCOR
+ frest (MHz) :  1420.4058
 
 
-    Your parameters were either user specified or assumed to be the following. Please reveiw:
+ Your parameters were either user specified or assumed to be the following. Please review:
 
-   Name          Value
-   --------      ---------
-   Kernel        gaussbessel
-   Telescope     GBT
-   Projected     SFL
-   Input Chan.   2299:2479
-   # avg'd chan. 2
-   # of spec.    107429
-   Image size    962x860
+Name          Value
+--------      ---------
+Kernel        gauss
+Telescope     GBT
+Projection    SFL
+Input Chan.   0:449
+# Output Chan. 450
+# of spec.    4692
+Image size    43x43
 
-    If you need more info, type 'N' and run again with `--verbose 4` flag
+ If you need more info, type 'N' and run again with `--verbose 4` flag
 
-    Would you like to continue with these parameters?
-    'Y' for yes, 'N' for no.
+ Would you like to continue with these parameters?
+ 'Y' for yes, 'N' for no.
+
 ```
 
 - When it is done it will write your .fits files. The output for example above is only cube, so an example of the output when the gridding is complete is
 
 ```bash
-    Would you like to continue with these parameters?
-     'Y' for yes, 'N' for no.
-    Y
+ Would you like to continue with these parameters?
+ 'Y' for yes, 'N' for no.
+y
 
 
-     Gridding
-    Generating sparse distance matrix...
-    Calculating convolution weights...
-    Using Gaussian x Bessel kernel
-    Calculating data weights...
-    Convolving...
-    Channel 2 out of 2
-
-    Writing cube
-    Runtime: 0.9 minutes
+ Gridding
+Reshaping weights
+Running cygrid on the data
+Writing cube
+Runtime: 0.1 minutes
 ```
 
 
