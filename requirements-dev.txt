@@ -4,7 +4,7 @@
 #
 #    pip-compile requirements-dev.in
 #
-backports.entry-points-selectable==1.1.1
+backports-entry-points-selectable==1.1.1
     # via virtualenv
 cfgv==3.3.0
     # via pre-commit

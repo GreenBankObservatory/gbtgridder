@@ -8,7 +8,7 @@ astropy==5.1
     # via
     #   cygrid
     #   gbtgridder (setup.py)
-cygrid==2.0.2
+cygrid @ git+https://github.com/kathlynpurcell/cygrid.git
     # via gbtgridder (setup.py)
 cython==0.29.30
     # via cygrid
