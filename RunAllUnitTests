@@ -1,0 +1,4 @@
+echo Running Gridder UNIT tests
+cd test/unit_tests
+pytest
+cd ../..

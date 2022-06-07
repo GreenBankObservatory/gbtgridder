@@ -1,0 +1,4 @@
+echo Running Gridder Integration tests
+cd test/integration_tests
+pytest
+cd ../..
