@@ -1,16 +1,16 @@
-GBTGridder_Cygrid Docs (In dev stage)
+GBTGridder-test Docs (In dev stage)
 ======================================
 
-**For what:** GBTGridder Version 1.0, cygrid version
+**For what:** GBTGridder Version 1.0, cygrid/test version
 
 **Based On:** GBTGridder Version 0.5 https://github.com/GreenBankObservatory/gbtgridder branch: `master`
 
-**Where:** https://github.com/GreenBankObservatory/gbtgridder branch: `cygrid`
+**Where:** https://github.com/GreenBankObservatory/gbtgridder branch: `cygrid_dev`
 
-**Tested using:** `14B_076_2_edit_shifted.fits` and `14A_302+14B_461_edit_v2_shifted.fits` + `15B_139_edit_v2_shifted.fits`
+**Tested using:** https://safe.nrao.edu/wiki/bin/view/GB/Software/Testing_MatrixGridder
 
 **Authors:
-Science Advisor:** Jay Lockman,
+Science Advisors:** Jay Lockman and Pedro Salas,
 **Cygrid Author:** Benjamin Winkel,
 **GBTGridder/Cygrid Version Author:** Kasey Purcell ([kpurcell@nrao.edu]), and Pedro Salas
 
@@ -36,45 +36,45 @@ Running Each
 .. code-block:: bash
 
     # all arguments should be specific to the project, many more are also available
-    # use `gbtgridder --help` to learn more
-    gbtgridder --noweight [--nocont --noline] -o 14B_076_2_edit_shifted --pixelwidth 105.0 --size 926 860 --mapcenter 2.0 3.0 -a 70 -k gaussbessel --channels '2300:2480' 14B_076_2_edit_shifted.fits
+    # use `gbtgridder-test --help` to learn more
+    gbtgridder[-test] --noweight [--nocont --noline] -o my_first_gbtgrid ./test/unit_tests/test.fits
 
 What to expect from original gridder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. code-block:: bash
 
-    (gridder-venv) [kpurcell@belinda /home/sandboxes/kpurcell/repos/gbtgridder/gbtgridder/src]$ gbtgridder --noline --noweight --nocont -o 14B_076_2_edit_shifted --pixelwidth 105.0 --size 926 860 --mapcenter 2.0 3.0 -a 70 -k gaussbessel --channels '2300:2480' 14B_076_2_edit_shifted.fits --verbose 5
-
+    $ gbtgridder --noweight --nocont --noline -o my_first_gbtgrid ./test/unit_tests/test.fits --verbose 6
     System seems to be running RHEL7
-    channelString (2300:2480)
     Loading data ...
-        14B_076_2_edit_shifted.fits
-    outname root :  14B_076_2_edit_shifted_
+        ./test/unit_tests/test.fits
+    WARNING: ErfaWarning: ERFA function "dtf2d" yielded 4692 of "dubious year (Note 6)" [astropy._erfa.core]
+    outname root :  my_first_gbtgrid_
          clobber :  False
     Data summary ...
-       scans :  717:726,728:732,734:751,753:784,809:816,818:824,1306:1324,1327:1331,1334:1335,1407:1445,1447:1452,1506:1538,1540:1559,1610:1613,1706:1728,1730:1736,1738:1743,1745:1748,1750:1762,1806:1814,1816:1822,1824:1831,1833:1840,1906:1961,2007:2062,2106:2162,2201:2219,2305:2321,2410:2435,2437:2452,2454:2461,2505:2530,2532:2536,2607:2642,2707:2780,2807:2891,2907:2927,2929:2967
-       channels : 2299:2479
+       scans :  1937:1970
+       channels : 0:449
        no tsys selection
-       spectra to grid :  107429
+       spectra to grid :  4692
 
     Map info ...
-       beam_fwhm :  0.145121794593 ( 522.438460536  arcsec)
-       pix_scale :  0.0291666666667 ( 105.0  arcsec)
-      gauss fwhm :  0.0728231596274 ( 262.163374659  arcsec)
-        ref Xsky :  2.0
+       beam_fwhm :  0.14510381863 ( 522.373747067  arcsec)
+       pix_scale :  0.0244444444444 ( 88.0  arcsec)
+      gauss fwhm :  0.0610327433068 ( 219.717875905  arcsec)
+        ref Xsky :  350.998055556
         ref Ysky :  0.0
-     center Ysky :  3.0
-           xsize :  926
-           ysize :  860
-        ref Xpix :  463.0
-        ref Ypix :  328.142857143
-              f0 :  1420388838.49
-        delta(f) :  -100141.866557
-          nchan  :  2
-          source :  G03+4.0    STCOR
+     center Ysky :  6.99833333333
+           xsize :  111
+           ysize :  119
+        ref Xpix :  55.5
+        ref Ypix :  -225.795454545
+              f0 :  1423726423.85
+        delta(f) :  -14306.0124693
+          nchan  :  450
+          source :  G351.0+7.0 STCOR
      frest (MHz) :  1420.4058
     Gridding
-    Row   4 out of 926
+    Row 111 out of 111
+    Writing cube
 
 
 What to expect from the new cygrid gbtgridder
@@ -82,29 +82,35 @@ What to expect from the new cygrid gbtgridder
 
 .. code-block:: bash
 
-    $ gbtgridder --noweight -o 14B_076_2_edit_shifted --pixelwidth 105.0 --mapcenter 2.0 3.0 -a 70 -k gaussbessel --size 926 860 --channels "2300:2480" ./14B_076_2_edit_shifted.fits --verbose 5
+    $ gbtgridder-test --noweight -o my_first_gbtgrid ./test/unit_tests/test.fits --verbose 6 --autoConfirm
 
-    channelString (2300:2480)
+    Collecting arguments and data...
     Loading data ...
-        ./14B_076_2_edit_shifted.fits
-    outname root :  14B_076_2_edit_shifted_
+        ./test/unit_tests/test.fits
+    outname root :  my_first_gbtgrid_
          clobber :  False
+    Data Extracted Successfully.
     Data summary ...
-       scans :  717:726,728:732,734:751,753:784,809:816,818:824,1306:1324,1327:1331,1334:1335,1407:1445,1447:1452,1506:1538,1540:1559,1610:1613,1706:1728,1730:1736,1738:1743,1745:1748,1750:1762,1806:1814,1816:1822,1824:1831,1833:1840,1906:1961,2007:2062,2106:2162,2201:2219,2305:2321,2410:2435,2437:2452,2454:2461,2505:2530,2532:2536,2607:2642,2707:2780,2807:2891,2907:2927,2929:2967
-       channels : 2299:2479
+       scans :  1937:1970
+       channels : 0:449
        no tsys selection
-       spectra to grid :  107429
+       spectra to grid :  4692
 
      Map info ...
-       beam_fwhm :  0.1451149459394181 ( 522.4138053819051  arcsec)
-       pix_scale :  0.029166666666666667 ( 105.0  arcsec)
-      gauss fwhm :  0.08054407825984171 ( 289.95868173543016  arcsec)
-           xsize :  962
-           ysize :  860
-              f0 :  1420388838.4948816
-        delta(f) :  -100141.86655688286
-      num. chan  :  2
-          source :  G03+4.0    STCOR
+       beam_fwhm :  0.1451038186298307 ( 522.3737470673906  arcsec)
+       pix_scale :  0.0483679395432769 ( 174.12458235579686  arcsec)
+      gauss fwhm :  0.08053790219790387 ( 289.93644791245396  arcsec)
+        ref Xsky :  350.99805555555554 (if negative then add 360)
+        ref Ysky :  0.0
+     center Ysky :  6.998333333333333
+           xsize :  43
+           ysize :  43
+        ref Xpix :  21.5
+        ref Ypix :  -122.18950712840723
+              f0 :  1423726423.8457916
+        delta(f) :  -14306.012469291687
+      num. chan  :  450
+          source :  G351.0+7.0 STCOR
      frest (MHz) :  1420.4058
 
 
@@ -112,28 +118,17 @@ What to expect from the new cygrid gbtgridder
 
     Name          Value
     --------      ---------
-    Kernel        gaussbessel
+    Kernel        gauss
     Telescope     GBT
-    Projection       SFL
-    Input Channels      2299:2479
-    # avg'd chan. 2
-    # of spec.    107429
-    Image size    962x860
-
-     If you need more info, type 'N' and run again with `--verbose 4` flag
-
-     Would you like to continue with these parameters?
-     'Y' for yes, 'N' for no.
-    y
+    Projection    SFL
+    Input Chan.   0:449
+    # Output Chan. 450
+    # of spec.    4692
+    Image size    43x43
 
 
      Gridding
-    Generating sparse distance matrix...
-    Calculating convolution weights...
-    Using Gaussian x Bessel kernel
-    Calculating data weights...
-    Convolving...
-    Channel 2 out of 2
-
+    Reshaping weights
+    Running cygrid on the data
     Writing cube
-    Runtime: 1.4 minutes
+    Runtime: 0.1 minutes
