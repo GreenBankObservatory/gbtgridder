@@ -28,6 +28,10 @@ SDGridder
 ++++++++++
 [https://github.com/tvwenger/sdgridder]
 
+Testing
++++++++++++++
+There are both unit and integration tests available through pytest. To run either go to the root of the repo and run `RunAll[Unit,Integration]Tests`
+Please feel free to use the provided sdfits files to compare to any other version of a gridder to determine the gbtgridder-test's accuracy
 
 
 Running Each

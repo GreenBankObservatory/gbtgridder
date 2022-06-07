@@ -128,6 +128,18 @@ In the above example, only cube output was specified, so the output file is only
 * * *
 * * *
 
+
+# Testing
+There are both unit and integration tests available through pytest. To run either go to the root of the repo and run 
+```bash
+    RunAll[Unit,Integration]Tests
+```
+Please feel free to use the provided sdfits files to compare to any other version of a gridder to determine the gbtgridder-test's accuracy
+
+* * *
+* * *
+
+
 # CasaViewer Tips and Tricks
 
 The menu bar above the image can be clicked by the three mouse buttons (right,left and scroll) to change the hotkeys and manipulate the image
