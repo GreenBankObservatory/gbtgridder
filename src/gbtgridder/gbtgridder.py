@@ -330,7 +330,7 @@ def gbtgridder(args):
                     source,
                     rest_freq,
                     args,
-                    ["cube", "weight", "line", "cont"],
+                    ["cube", "weight"],
                     verbose=verbose,
                 )
                 if len(outputFiles) == 0:
@@ -408,7 +408,7 @@ def gbtgridder(args):
 
     # Setting weight so we don't have to pass
     # the system temperature and exposure time to grid_otf.
-    weight = texp / (tsys ** 2)
+    weights=np.nan_to_num(texp/tsys**2)
 
     if args.restfreq is not None:
         # Use user supplied rest frequency, conver to Hz
