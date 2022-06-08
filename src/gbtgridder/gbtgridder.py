@@ -350,7 +350,7 @@ def gbtgridder(args):
             raise
 
     # Loop over SDFITS files and get data and positions
-    spec = np.ones((num_positions, spec_size), dtype=np.float32) * np.nan
+    spec = np.ones((num_positions, spec_size), dtype=np.float64) * np.nan
     glong = np.ones(num_positions, dtype=np.float32) * np.nan
     glat = np.ones(num_positions, dtype=np.float32) * np.nan
     texp = np.ones(num_positions, dtype=np.float32) * np.nan
@@ -387,7 +387,7 @@ def gbtgridder(args):
                 glat[idx : idx + num] = dataRecord["ysky"]  # deg
                 idx += num
             except:
-                print("There was an errror getting data from the SDFits file")
+                print("There was an error getting data from the SDFits file")
                 return
 
         except (AssertionError):
@@ -408,7 +408,7 @@ def gbtgridder(args):
 
     # Setting weight so we don't have to pass
     # the system temperature and exposure time to grid_otf.
-    weights=np.nan_to_num(texp/tsys**2)
+    weights = np.nan_to_num(texp/tsys**2)
 
     if args.restfreq is not None:
         # Use user supplied rest frequency, conver to Hz
@@ -677,7 +677,7 @@ def gbtgridder(args):
             refXsky,
             centerYsky,
             beam_fwhm=beam_fwhm,
-            weights=weight,
+            weights=weights,
             kernel_type=args.kernel,
             gauss_fwhm=gauss_fwhm,
             verbose=verbose,
