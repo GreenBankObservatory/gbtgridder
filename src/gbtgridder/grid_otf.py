@@ -123,16 +123,19 @@ def grid_otf(
         if verbose > 4:
             print("Reshaping weights")
         if weights.shape[0] == spec.shape[0]:
-            weight_array = weights[..., None] + np.empty(nchan_data, dtype=np.float32)
+            weight_array = weights[..., None] + np.empty(nchan_data, dtype=np.float64)
     else:
         weight_array = weights
 
-    # Remove NaN values from the data before gridding.
+    # Remove NaN and inf values from the data before gridding.
     if np.isnan(np.sum(spec)):
-        if verbose > 4:
-            print("Setting NaN values to 0")
+        #if verbose > 4:
+        #    print("Setting NaN values to 0")
         weight_array[np.isnan(spec)] = 0
-        spec[np.isnan(spec)] = 0
+        #weight_array[weight_array<-1e32] = 0
+        #weight_array[weight_array>1e32] = 0
+        #spec[np.isnan(spec)] = 0
+        spec = np.nan_to_num(spec)
 
     # Final spatial resolution.
     final_fwhm = np.sqrt(beam_fwhm ** 2.0 + gauss_fwhm ** 2.0)
@@ -156,10 +159,12 @@ def grid_otf(
         # Convolution function width for a Gaussian tapered Bessel
         # from Mangum, Emerson, Greisen (2007).
         kernel_params = (beam_fwhm / 3.0, 2.52, 1.55)
-        hpx_maxres = beam_fwhm / 3.0 / 2.0
+        #hpx_maxres = beam_fwhm / 3.0 / 2.0
+        hpx_maxres = min(pix_scale / 2, beam_fwhm / 3.0 / 2.0)
         # Support distance for convolution,
         # this preserves the "peak" of a point source (?).
         support_distance = 3.0 * gauss_fwhm
+        #support_distance = 3.01 * pix_scale
     elif kernel_type == "nearest":
         # kernel_type = "gauss1d"
         # kernel_params = (gauss_sigma)
@@ -172,7 +177,7 @@ def grid_otf(
     kernel_support = support_distance
 
     # Define a `cygrid.gridder` object and its kernel.
-    mygridder = cygrid.WcsGrid(header)
+    mygridder = cygrid.WcsGrid(header, dtype=np.float64)
     mygridder.set_kernel(kernel_type, kernel_params, kernel_support, hpx_maxres)
 
     # Do the gridding.
@@ -181,7 +186,20 @@ def grid_otf(
     mygridder.grid(glon, glat, spec, weights=weight_array)
 
     # Query results.
-    data_cube = mygridder.get_datacube()
+    #data_cube = mygridder.get_datacube()
+    data_cube = mygridder.get_unweighted_datacube()
     weights_cube = mygridder.get_weights()
+
+    # Avoid division by invalid values.
+    data_cube = np.ma.masked_invalid(data_cube)
+    weights_cube = np.ma.masked_invalid(weights_cube)
+    data_cube /= weights_cube
+
+    data_cube = data_cube.filled(np.nan)
+    weights_cube = weights_cube.filled(np.nan)
+
+    # Remove pixels whose weight is too small,
+    # as these have a much larger scale.
+    #data_cube[abs(weights_cube)<1e-5] = np.nan
 
     return (data_cube, weights_cube, final_fwhm)
