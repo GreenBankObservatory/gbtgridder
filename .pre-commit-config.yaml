@@ -10,7 +10,7 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
         args:
-          - '--maxkb=1024'
+          - '--maxkb=13000'
       - id: debug-statements
       - id: mixed-line-ending
         args:

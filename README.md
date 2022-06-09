@@ -128,7 +128,7 @@ In the above example, only cube output was specified, so the output file is only
 
 
 # Testing
-There are both unit and integration tests available through pytest. To run either go to the root of the repo and run 
+There are both unit and integration tests available through pytest. To run either go to the root of the repo and run
 ```bash
     RunAll[Unit,Integration]Tests
 ```
@@ -157,6 +157,7 @@ The menu bar above the image can be clicked by the three mouse buttons (right,le
 * * *
 
 # Appendix
+
 
 ## Printout for `gbtgridder-test --help`
 
