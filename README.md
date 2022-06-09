@@ -113,8 +113,6 @@ Writing cube
 Runtime: 0.1 minutes
 ```
 
-
-
 4.  Reviewing the output files
 
 In the above example, only cube output was specified, so the output file is only `*file output name*_cube.fits`. We want to look at this data
