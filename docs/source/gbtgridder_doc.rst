@@ -1,4 +1,4 @@
-GBTGridder-test Docs (In dev stage)
+GBTGridder-test Docs
 ======================================
 
 **For what:** GBTGridder Version 1.0, cygrid/test version
@@ -9,8 +9,7 @@ GBTGridder-test Docs (In dev stage)
 
 **Tested using:** https://safe.nrao.edu/wiki/bin/view/GB/Software/Testing_MatrixGridder
 
-**Authors:
-Science Advisors:** Jay Lockman and Pedro Salas,
+**Science Advisors:** Jay Lockman and Pedro Salas,
 **Cygrid Author:** Benjamin Winkel,
 **GBTGridder/Cygrid Version Author:** Kasey Purcell ([kpurcell@nrao.edu]), and Pedro Salas
 
@@ -28,6 +27,10 @@ SDGridder
 ++++++++++
 [https://github.com/tvwenger/sdgridder]
 
+Cygrid
++++++++++
+[https://github.com/bwinkel/cygrid]
+
 Testing
 +++++++++++++
 There are both unit and integration tests available through pytest. To run either go to the root of the repo and run `RunAll[Unit,Integration]Tests`
@@ -43,7 +46,7 @@ Running Each
     # use `gbtgridder-test --help` to learn more
     gbtgridder[-test] --noweight [--nocont --noline] -o my_first_gbtgrid ./test/unit_tests/test.fits
 
-What to expect from original gridder
+What to expect from (original) gbtgridder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. code-block:: bash
 
@@ -81,7 +84,7 @@ What to expect from original gridder
     Writing cube
 
 
-What to expect from the new cygrid gbtgridder
+What to expect from (new) gbtgridder-test
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash

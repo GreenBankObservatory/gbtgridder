@@ -1,4 +1,4 @@
-How to Get and Use the GBTGridder
+How to Get and Use the GBTGridder-test
 =====================================
 
 ***Note: anything in `<*...*>` needs to be replaced with what is relevant to you and your project***
