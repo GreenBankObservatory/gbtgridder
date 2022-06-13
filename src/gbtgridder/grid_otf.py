@@ -119,22 +119,16 @@ def grid_otf(
         return result
 
     # Handle the weights.
+    weights[weights == 0] += 1e-16
     if weights.shape != spec.shape:
-        if verbose > 4:
-            print("Reshaping weights")
         if weights.shape[0] == spec.shape[0]:
-            weight_array = weights[..., None] + np.empty(nchan_data, dtype=np.float64)
+            weight_array = weights[..., None] + np.zeros_like(spec) 
     else:
         weight_array = weights
 
     # Remove NaN and inf values from the data before gridding.
     if np.isnan(np.sum(spec)):
-        #if verbose > 4:
-        #    print("Setting NaN values to 0")
         weight_array[np.isnan(spec)] = 0
-        #weight_array[weight_array<-1e32] = 0
-        #weight_array[weight_array>1e32] = 0
-        #spec[np.isnan(spec)] = 0
         spec = np.nan_to_num(spec)
 
     # Final spatial resolution.
@@ -159,12 +153,9 @@ def grid_otf(
         # Convolution function width for a Gaussian tapered Bessel
         # from Mangum, Emerson, Greisen (2007).
         kernel_params = (beam_fwhm / 3.0, 2.52, 1.55)
-        #hpx_maxres = beam_fwhm / 3.0 / 2.0
-        hpx_maxres = min(pix_scale / 2, beam_fwhm / 3.0 / 2.0)
-        # Support distance for convolution,
-        # this preserves the "peak" of a point source (?).
-        support_distance = 3.0 * gauss_fwhm
-        #support_distance = 3.01 * pix_scale
+        hpx_maxres = pix_scale / 2.0 
+        # Support distance for convolution.
+        support_distance = 1.0 * beam_fwhm
     elif kernel_type == "nearest":
         # kernel_type = "gauss1d"
         # kernel_params = (gauss_sigma)
