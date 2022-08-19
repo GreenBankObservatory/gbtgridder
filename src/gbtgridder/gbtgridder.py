@@ -433,24 +433,26 @@ def gbtgridder(args):
     ny = None
     refXpix = None
     refYpix = None
-    if args.mapcenter:
-        refXsky = args.mapcenter[0]
-        refYsky = args.mapcenter[1]
-    else:
-        refYsky = round(np.mean(ysky) * 3600.0) / 3600.0
-        if coordType[0] in ["RA", "HA"]:
-            refXsky = round(np.mean(xsky) * 3600.0 / 15) / (3600.0 / 15.0)
-        else:
-            refXsky = round(np.mean(xsky_calc) * 3600.0) / 3600.0
-            if refXsky < 0:
-                refXsky = refXsky + 360
+    refXsky = None
+    refYsky = None
+#    if args.mapcenter:
+#        refXsky = args.mapcenter[0]
+#        refYsky = args.mapcenter[1]
+#    else:
+#        refYsky = round(np.mean(ysky) * 3600.0) / 3600.0
+#        if coordType[0] in ["RA", "HA"]:
+#            refXsky = round(np.mean(xsky) * 3600.0 / 15) / (3600.0 / 15.0)
+#        else:
+#            refXsky = round(np.mean(xsky_calc) * 3600.0) / 3600.0
+#            if refXsky < 0:
+#                refXsky = refXsky + 360
 
-    # Avoid using 0,0 as map center.
-    # `cygrid` does not handle this case well.
-    if refXsky == 0:
-        refXsky += 1e-8
-    if refYsky == 0:
-        refYsky += 1e-8
+#    # Avoid using 0,0 as map center.
+#    # `cygrid` does not handle this case well.
+#    if refXsky == 0:
+#        refXsky += 1e-8
+#    if refYsky == 0:
+#        refYsky += 1e-8
 
     if args.clonecube is not None:
         # use the cloned values
@@ -525,7 +527,6 @@ def gbtgridder(args):
             print(f"{(nonZeroXY == False).sum()} spectra will be excluded because the antenna pointing is exactly equal to 0.0 on both axes - unlikely to be a valid position")
 
 
-
     # Generate image dimensions
     if args.size is None:  # number of x axis pixels
         xsky_size = np.nanmax(xsky_calc[nonZeroXY]) - np.nanmin(xsky_calc[nonZeroXY])
@@ -537,6 +538,43 @@ def gbtgridder(args):
     else:
         nx = args.size[0]
         ny = args.size[1]
+
+    if refXsky is None:
+        if args.mapcenter is not None:
+            # use user-supplied value
+            refXsky = args.mapcenter[0]
+        else:
+            # set the reference sky position using the mean x and y positions
+            # still need to worry about points clearly off the grid
+            #   e.g. a reference position incorrectly included in the data to be gridded.
+            #   not sure what an appropriate heuristic for that is
+
+            # idlToSdfits rounds the center from the mean to the nearest second/arcsecond
+            # for RA or HA, divide by 15
+            if coordType[0] in ['RA','HA']:
+                refXsky = round(np.mean(xsky[nonZeroXY])*3600.0/15)/(3600.0/15.0)
+            else:
+                refXsky = round(np.mean(xsky[nonZeroXY])*3600.0)/3600.0
+
+    if refYsky is None:
+        if args.mapcenter is not None:
+            # use user-supplied value
+            refYsky = args.mapcenter[1]
+        else:
+            # nonZeroXY MUST have already been set above to get here
+            # do not check that it's set or set it here
+            # assume that the Y coordinate is +- 90 and there's no problem
+            # with 360/0 or +- 180 confusion as there may be with the X coordinate
+            refYsky = round(np.mean(ysky[nonZeroXY])*3600.0)/3600.0
+
+
+    # Avoid using 0,0 as map center.
+    # `cygrid` does not handle this case well.
+    if refXsky == 0:
+        refXsky += 1e-8
+    if refYsky == 0:
+        refYsky += 1e-8
+
 
     # Get convolution Gaussian FWHM (deg)
     if args.kernel == "gauss":
