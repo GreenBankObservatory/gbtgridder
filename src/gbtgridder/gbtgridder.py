@@ -544,6 +544,7 @@ def gbtgridder(args):
             # then reset refYsky
             refYsky = 0.0
 
+    print("Please note that this gridding will be done using a monochromatic beam ie. using a single frequency (color) for the convolution kernel. \n\n")
     if verbose > 4:
         print("Data summary ...")
         print("   scans : ", format_scans(uniqueScans))
@@ -606,6 +607,7 @@ def gbtgridder(args):
         ["# Output Chan.", spec_size],
         ["# of spec.", num_positions],
         ["Image size", str(nx) + "x" + str(ny)],
+        ["Beam_FWHM", beam_fwhm]
     ]
     print("{:<13} {:<2}".format("Name", "Value"))
     print("{:<13} {:<2}".format("--------", "---------"))
@@ -716,21 +718,22 @@ def gbtgridder(args):
     hdr["date"] = time.strftime("%Y-%m-%d", time.gmtime())
     hdr["obsra"] = refXsky
     hdr["obsdec"] = centerYsky
+    hdr["beam_fwhm"] = (beam_fwhm, "Main beam FWHM at the central frequency or user provided value")
 
     if args.kernel == "gauss":
         hdr.add_comment("Convolved with Gaussian convolution function.")
-        hdr["BMAJ"] = final_fwhm
-        hdr["BMIN"] = final_fwhm
+        hdr["BMAJ"] = (final_fwhm, "Beam FWHM of the gridded cube at the central frequency")
+        hdr["BMIN"] = (final_fwhm, "Beam FWHM of the gridded cube at the central frequency")
     elif args.kernel == "gaussbessel":
         hdr.add_comment(
             "Convolved with optimized Gaussian-Bessel convolution function."
         )
-        hdr["BMAJ"] = (final_fwhm, "*But* not Gaussian.")
-        hdr["BMIN"] = (final_fwhm, "*But* not Gaussian.")
+        hdr["BMAJ"] = (final_fwhm, "*But* not Gaussian. Beam FWHM of the gridded cube at the central frequency")
+        hdr["BMIN"] = (final_fwhm, "*But* not Gaussian. Beam FWHM of the gridded cube at the central frequency")
     else:
         hdr.add_comment("Gridded to nearest cell")
-        hdr["BMAJ"] = final_fwhm
-        hdr["BMIN"] = final_fwhm
+        hdr["BMAJ"] = (final_fwhm, "Beam FWHM of the gridded cube at the central frequency")
+        hdr["BMIN"] = (final_fwhm, "Beam FWHM of the gridded cube at the central frequency")
     hdr["BPA"] = 0.0
 
     if dataUnits == "Jy":
