@@ -63,8 +63,8 @@ def grid_otf(
     """Grid individual spectra onto a specified regular grid using the package
     cygrid https://github.com/bwinkel/cygrid/tree/master/cygrid.
 
-    Version 1.1 based on version 0.5 by Bob Garwood (NRAO) and cygrid by bwinkel
-    For Verison 1.0 support reach out to Kathlyn Purcell (kpurcell@nrao.edu)
+    Version 2.0 based on version 0.5 by Bob Garwood (NRAO) and cygrid by bwinkel
+    For Verison 2.0 support reach out to Kathlyn Purcell (kpurcell@nrao.edu)
 
     Inputs:
        spec - 1-d array containing the spectra to be gridded
@@ -119,6 +119,9 @@ def grid_otf(
         return result
 
     # Handle the weights.
+    if weights == None:
+        print("Configuring equal weights, all = 1")
+        weights = np.ones(spec.shape[0])[..., None] + np.ones(nchan_data, dtype=np.float64)
     if weights.shape != spec.shape:
         if verbose > 4:
             print("Reshaping weights")

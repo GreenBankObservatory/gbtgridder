@@ -34,7 +34,7 @@ from .get_data import get_data
 from .grid_otf import grid_otf
 from .make_header import make_header
 
-gbtgridderVersion = "1.0"
+gbtgridderVersion = "2.0"
 _C = 299792458.0  # speed of light (m/s)
 
 
@@ -408,7 +408,11 @@ def gbtgridder(args):
 
     # Setting weight so we don't have to pass
     # the system temperature and exposure time to grid_otf.
-    weights = np.nan_to_num(texp/tsys**2)
+    if args.equalweight:
+        weights = None
+        wt_value = None
+    else:
+        weights = np.nan_to_num(texp/tsys**2)
 
     if args.restfreq is not None:
         # Use user supplied rest frequency, conver to Hz
@@ -544,7 +548,7 @@ def gbtgridder(args):
             # then reset refYsky
             refYsky = 0.0
 
-    print("Please note that this gridding will be done using a monochromatic beam ie. using a single frequency (color) for the convolution kernel. \n\n")
+    print("\n Please note that this gridding will be done using a monochromatic beam ie. using a single frequency (color) for the convolution kernel. \n")
     if verbose > 4:
         print("Data summary ...")
         print("   scans : ", format_scans(uniqueScans))
@@ -718,22 +722,22 @@ def gbtgridder(args):
     hdr["date"] = time.strftime("%Y-%m-%d", time.gmtime())
     hdr["obsra"] = refXsky
     hdr["obsdec"] = centerYsky
-    hdr["beam_fwhm"] = (beam_fwhm, "Main beam FWHM at the central frequency or user provided value")
+    hdr["beamFWHM"] = (beam_fwhm, "Main beamFWHM at centralFreq or user value")
 
     if args.kernel == "gauss":
         hdr.add_comment("Convolved with Gaussian convolution function.")
-        hdr["BMAJ"] = (final_fwhm, "Beam FWHM of the gridded cube at the central frequency")
-        hdr["BMIN"] = (final_fwhm, "Beam FWHM of the gridded cube at the central frequency")
+        hdr["BMAJ"] = (final_fwhm, "Beam FWHM of gridded cube at the central freq")
+        hdr["BMIN"] = (final_fwhm, "Beam FWHM of gridded cube at the central freq")
     elif args.kernel == "gaussbessel":
         hdr.add_comment(
             "Convolved with optimized Gaussian-Bessel convolution function."
         )
-        hdr["BMAJ"] = (final_fwhm, "*But* not Gaussian. Beam FWHM of the gridded cube at the central frequency")
-        hdr["BMIN"] = (final_fwhm, "*But* not Gaussian. Beam FWHM of the gridded cube at the central frequency")
+        hdr["BMAJ"] = (final_fwhm, "*But* not Gaussian. Beam FWHM of gridded cube at the central freq")
+        hdr["BMIN"] = (final_fwhm, "*But* not Gaussian. Beam FWHM of gridded cube at the central freq")
     else:
         hdr.add_comment("Gridded to nearest cell")
-        hdr["BMAJ"] = (final_fwhm, "Beam FWHM of the gridded cube at the central frequency")
-        hdr["BMIN"] = (final_fwhm, "Beam FWHM of the gridded cube at the central frequency")
+        hdr["BMAJ"] = (final_fwhm, "Beam FWHM of gridded cube at the central freq")
+        hdr["BMIN"] = (final_fwhm, "Beam FWHM of gridded cube at the central freq")
     hdr["BPA"] = 0.0
 
     if dataUnits == "Jy":

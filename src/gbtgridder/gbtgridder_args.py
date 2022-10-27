@@ -155,6 +155,12 @@ def parser_args(args, gbtgridderVersion):
         help="Set this to turn off production of the output weight cube",
     )
     parser.add_argument(
+        "--equalweight",
+        default=False,
+        action="store_true",
+        help="Is selected, all weight values will be equal and set to 1",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         type=int,
