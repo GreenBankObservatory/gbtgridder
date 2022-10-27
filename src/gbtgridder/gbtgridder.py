@@ -247,8 +247,8 @@ def gbtgridder(args):
             return
 
     # extract everything from the SDFITS files
-    glong = None
-    glat = None
+    xsky = None
+    ysky = None
     spec = None
     rest_freq = None
     faxis = None
@@ -299,7 +299,7 @@ def gbtgridder(args):
                 continue
 
             num_positions += dataRecord["xsky"].size
-            if glong is None:
+            if xsky is None:
                 chanStart = dataRecord["chanStart"]
                 chanStop = dataRecord["chanStop"]
                 wt_value = dataRecord["wt"]
@@ -351,8 +351,8 @@ def gbtgridder(args):
 
     # Loop over SDFITS files and get data and positions
     spec = np.ones((num_positions, spec_size), dtype=np.float64) * np.nan
-    glong = np.ones(num_positions, dtype=np.float32) * np.nan
-    glat = np.ones(num_positions, dtype=np.float32) * np.nan
+    xsky = np.ones(num_positions, dtype=np.float32) * np.nan
+    ysky = np.ones(num_positions, dtype=np.float32) * np.nan
     texp = np.ones(num_positions, dtype=np.float32) * np.nan
     tsys = np.ones(num_positions, dtype=np.float32) * np.nan
     idx = 0
@@ -383,8 +383,8 @@ def gbtgridder(args):
                 tsys[idx : idx + num] = dataRecord["tsys"]
                 texp[idx : idx + num] = dataRecord["texp"]
                 spec[idx : idx + num] = dataRecord["data"]  # K
-                glong[idx : idx + num] = dataRecord["xsky"]  # deg
-                glat[idx : idx + num] = dataRecord["ysky"]  # deg
+                xsky[idx : idx + num] = dataRecord["xsky"]  # deg
+                ysky[idx : idx + num] = dataRecord["ysky"]  # deg
                 idx += num
             except:
                 print("There was an error getting data from the SDFits file")
@@ -398,7 +398,7 @@ def gbtgridder(args):
     if verbose > 3:
         print("Data Extracted Successfully.")
 
-    if glong is None:
+    if xsky is None:
         if verbose > 1:
             print(
                 "No data was found in the input SDFITS files given the data selection options used."
@@ -426,35 +426,37 @@ def gbtgridder(args):
         avg_faxis = (faxis[0] + faxis[len(faxis) - 1]) / 2
         beam_fwhm = np.rad2deg(1.2 * _C / (_D * avg_faxis))
 
-    # account for a glong value that crossed the 0-360 axis
-    if glong.max() > 180:
-        glong_calc = np.array([i - 360 if i > 180 else i for i in glong])
+    # account for a xsky value that crossed the 0-360 axis
+    if xsky.max() > 180:
+        xsky_calc = np.array([i - 360 if i > 180 else i for i in xsky])
     else:
-        glong_calc = glong
+        xsky_calc = xsky
 
     pix_scale = None
     nx = None
     ny = None
     refXpix = None
     refYpix = None
-    if args.mapcenter:
-        refXsky = args.mapcenter[0]
-        refYsky = args.mapcenter[1]
-    else:
-        refYsky = round(np.mean(glat) * 3600.0) / 3600.0
-        if coordType[0] in ["RA", "HA"]:
-            refXsky = round(np.mean(glong) * 3600.0 / 15) / (3600.0 / 15.0)
-        else:
-            refXsky = round(np.mean(glong_calc) * 3600.0) / 3600.0
-            if refXsky < 0:
-                refXsky = refXsky + 360
+    refXsky = None
+    refYsky = None
+#    if args.mapcenter:
+#        refXsky = args.mapcenter[0]
+#        refYsky = args.mapcenter[1]
+#    else:
+#        refYsky = round(np.mean(ysky) * 3600.0) / 3600.0
+#        if coordType[0] in ["RA", "HA"]:
+#            refXsky = round(np.mean(xsky) * 3600.0 / 15) / (3600.0 / 15.0)
+#        else:
+#            refXsky = round(np.mean(xsky_calc) * 3600.0) / 3600.0
+#            if refXsky < 0:
+#                refXsky = refXsky + 360
 
-    # Avoid using 0,0 as map center.
-    # `cygrid` does not handle this case well.
-    if refXsky == 0:
-        refXsky += 1e-8
-    if refYsky == 0:
-        refYsky += 1e-8
+#    # Avoid using 0,0 as map center.
+#    # `cygrid` does not handle this case well.
+#    if refXsky == 0:
+#        refXsky += 1e-8
+#    if refYsky == 0:
+#        refYsky += 1e-8
 
     if args.clonecube is not None:
         # use the cloned values
@@ -507,17 +509,76 @@ def gbtgridder(args):
             "resulting cube might contain spurious data. Try using a smaller pixel scale."
         )
 
+
+    # this is needed ONLY when the cube center and size are not given 
+    # on the command line in one way or another
+    centerUnknown = ((refXsky is None or refYsky is None) and args.mapcenter is None)
+    sizeUnknown = (args.size is None)
+    nonZeroXY = None
+    if centerUnknown or sizeUnknown:
+        # this masks out antenna positions exactly equal to 0.0 - unlikely to happen
+        # except when there is no valid antenna pointing for that scan.
+        nonZeroXY = (xsky!=0.0) & (ysky!=0.0)
+
+        # watch for the pathological case where there is no good antenna data
+        # which can not be gridded at all
+        if np.all(nonZeroXY == False):
+            # always print this out, independent of verbosity level
+            print("All antenna pointings are exactly equal to 0.0, can not grid this data")
+            return
+
+        if verbose > 3 and np.any(nonZeroXY == False):
+            print(f"{(nonZeroXY == False).sum()} spectra will be excluded because the antenna pointing is exactly equal to 0.0 on both axes - unlikely to be a valid position")
+
+
     # Generate image dimensions
     if args.size is None:  # number of x axis pixels
-        glong_size = np.nanmax(glong_calc) - np.nanmin(glong_calc)
-        glat_size = np.nanmax(glat) - np.nanmin(glat)
-        nx = int(np.ceil(glong_size / pix_scale)) + 1  # ceil takes next greater integer
+        xsky_size = np.nanmax(xsky_calc[nonZeroXY]) - np.nanmin(xsky_calc[nonZeroXY])
+        ysky_size = np.nanmax(ysky[nonZeroXY]) - np.nanmin(ysky[nonZeroXY])
+        nx = int(np.ceil(xsky_size / pix_scale)) + 1  # ceil takes next greater integer
         ny = (
-            int(np.ceil(glat_size / pix_scale)) + 1
+            int(np.ceil(ysky_size / pix_scale)) + 1
         )  # no padding, only buffer by one pixel
     else:
         nx = args.size[0]
         ny = args.size[1]
+
+    if refXsky is None:
+        if args.mapcenter is not None:
+            # use user-supplied value
+            refXsky = args.mapcenter[0]
+        else:
+            # set the reference sky position using the mean x and y positions
+            # still need to worry about points clearly off the grid
+            #   e.g. a reference position incorrectly included in the data to be gridded.
+            #   not sure what an appropriate heuristic for that is
+
+            # idlToSdfits rounds the center from the mean to the nearest second/arcsecond
+            # for RA or HA, divide by 15
+            if coordType[0] in ['RA','HA']:
+                refXsky = round(np.mean(xsky[nonZeroXY])*3600.0/15)/(3600.0/15.0)
+            else:
+                refXsky = round(np.mean(xsky[nonZeroXY])*3600.0)/3600.0
+
+    if refYsky is None:
+        if args.mapcenter is not None:
+            # use user-supplied value
+            refYsky = args.mapcenter[1]
+        else:
+            # nonZeroXY MUST have already been set above to get here
+            # do not check that it's set or set it here
+            # assume that the Y coordinate is +- 90 and there's no problem
+            # with 360/0 or +- 180 confusion as there may be with the X coordinate
+            refYsky = round(np.mean(ysky[nonZeroXY])*3600.0)/3600.0
+
+
+    # Avoid using 0,0 as map center.
+    # `cygrid` does not handle this case well.
+    if refXsky == 0:
+        refXsky += 1e-8
+    if refYsky == 0:
+        refYsky += 1e-8
+
 
     # Get convolution Gaussian FWHM (deg)
     if args.kernel == "gauss":
@@ -568,7 +629,7 @@ def gbtgridder(args):
         if wt_value is not None:
             print("   spectra to grid : ", (wt_value != 0.0).sum())
         else:
-            print("   spectra to grid : ", len(glong))
+            print("   spectra to grid : ", len(xsky))
             print("   using equal weights")
 
         print("\n Map info ...")
@@ -676,8 +737,8 @@ def gbtgridder(args):
             spec,
             nx,
             ny,
-            glong,
-            glat,
+            xsky,
+            ysky,
             wcsObj,
             pix_scale,
             refXsky,
