@@ -13,7 +13,7 @@ Special Manipulations
 
 **result\["wt"\]**
 
-    This is a value based on tsys (temperature of the system) and tint (integration time) `numpy.nan_to_num(texp/(relTsys*relTsys))`
+    This is a value based on tsys (temperature of the system) and tint (integration time) `numpy.nan_to_num(texp/(relTsys*relTsys))`. Can be set to all equal weigths at 1 with the flag `--equalweights`
 
 **result\['specsys'\]**
 

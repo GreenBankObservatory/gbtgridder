@@ -11,8 +11,6 @@ This tutorial assumes little is known about navigating a terminal
     # Then do the below
     git clone https://github.com/GreenBankObservatory/gbtgridder.git
     cd gbtgridder
-    # get onto the v1.0 branch
-    git checkout cygrid_dev
     # make and source a new venv
     ~gbosdd/pythonversions/3.8/bin/python -m venv <path/vevnName>
     source <path/vevnName>/bin/activate
@@ -20,7 +18,7 @@ This tutorial assumes little is known about navigating a terminal
     pip install -r requirements.txt
     pip install -e .
 
-2.  For more info on the gridder run the command `$ gbtgridder-test --help`
+2.  For more info on the gridder run the command `$ gbtgridder --help`
 
     - this will give you information on what arguments to use and how to use them
 
@@ -28,12 +26,12 @@ This tutorial assumes little is known about navigating a terminal
 
     - this command will also show the version of the gridder you are using
 
-    * currently it is `version 1.0`
+    * currently it is `version 2.0`
 
 
 3.  To run the gridder
 
-- ex. `$ gbtgridder-test --noweight -o my_first_gbtgrid ./test/unit_tests/test.fits --verbose 6`
+- ex. `$ gbtgridder --noweight -o my_first_gbtgrid ./test/unit_tests/test.fits --verbose 6`
 
 .. code-block:: bash
 
@@ -144,12 +142,12 @@ The menu bar above the image can be clicked by the three mouse buttons (right,le
 Appendix
 ~~~~~~~~~
 
-Printout for `gbtgridder-test`
+Printout for `gbtgridder`
 ++++++++++++++++++++++++++++++++
 
 .. code-block:: bash
 
-  $ gbtgridder-test --help
+  $ gbtgridder --help
   usage: gbtgridder [-h] [-c CHANNELS] [-a AVERAGE] [-s SCANS] [-m MAXTSYS] [-z MINTSYS] [--clobber] [-k {gauss,gaussbessel,nearest}] [--diameter DIAMETER] [-o OUTPUT] [--mapcenter LONG LAT] [--size X Y] [--pixelwidth PIXELWIDTH]
                     [--beam_fwhm BEAM_FWHM] [--restfreq RESTFREQ] [-p {SFL,TAN}] [--clonecube CLONECUBE] [--autoConfirm] [--noweight] [-v VERBOSE] [-V]
                     SDFITSfiles [SDFITSfiles ...]
@@ -194,4 +192,4 @@ Printout for `gbtgridder-test`
                           set the verbosity level-- 0-1:none, 2:errors only, 3:+warnings, 4(default):+user info, 5:+debug
     -V, --version         show program's version number and exit
 
-  gbtgridder version: 1.0
+  gbtgridder version: 2.0

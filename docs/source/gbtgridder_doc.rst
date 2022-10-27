@@ -1,11 +1,11 @@
 GBTGridder-test Docs
 ======================================
 
-**For what:** GBTGridder Version 1.0, cygrid/test version
+**For what:** GBTGridder Version 2.0, cygrid version
 
-**Based On:** GBTGridder Version 0.5 https://github.com/GreenBankObservatory/gbtgridder branch: `master`
+**Based On:** GBTGridder Version 0.5 https://github.com/GreenBankObservatory/gbtgridder branch: `release_1.0`
 
-**Where:** https://github.com/GreenBankObservatory/gbtgridder branch: `cygrid_dev`
+**Where:** https://github.com/GreenBankObservatory/gbtgridder branch: `master`
 
 **Tested using:** https://safe.nrao.edu/wiki/bin/view/GB/Software/Testing_MatrixGridder
 
@@ -34,7 +34,7 @@ Cygrid
 Testing
 +++++++++++++
 There are both unit and integration tests available through pytest. To run either go to the root of the repo and run `RunAll[Unit,Integration]Tests`
-Please feel free to use the provided sdfits files to compare to any other version of a gridder to determine the gbtgridder-test's accuracy
+Please feel free to use the provided sdfits files to compare to any other version of a gridder to determine the gbtgridder's accuracy
 
 
 Running Each
@@ -43,14 +43,14 @@ Running Each
 .. code-block:: bash
 
     # all arguments should be specific to the project, many more are also available
-    # use `gbtgridder-test --help` to learn more
-    gbtgridder[-test] --noweight [--nocont --noline] -o my_first_gbtgrid ./test/unit_tests/test.fits
+    # use `gbtgridder --help` to learn more
+    gbtgridder[-original] --noweight [--nocont --noline] -o my_first_gbtgrid ./test/unit_tests/test.fits
 
 What to expect from (original) gbtgridder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. code-block:: bash
 
-    $ gbtgridder --noweight --nocont --noline -o my_first_gbtgrid ./test/unit_tests/test.fits --verbose 6
+    $ gbtgridder-original --noweight --nocont --noline -o my_first_gbtgrid ./test/unit_tests/test.fits --verbose 6
     System seems to be running RHEL7
     Loading data ...
         ./test/unit_tests/test.fits
@@ -89,7 +89,7 @@ What to expect from (new) gbtgridder-test
 
 .. code-block:: bash
 
-    $ gbtgridder-test --noweight -o my_first_gbtgrid ./test/unit_tests/test.fits --verbose 6 --autoConfirm
+    $ gbtgridder --noweight -o my_first_gbtgrid ./test/unit_tests/test.fits --verbose 6 --autoConfirm
 
     Collecting arguments and data...
     Loading data ...
