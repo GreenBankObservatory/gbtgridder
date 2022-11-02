@@ -119,7 +119,7 @@ def grid_otf(
         return result
 
     # Handle the weights.
-    if weights == None:
+    if weights is None:
         print("Configuring equal weights, all = 1")
         weights = np.ones(spec.shape[0])[..., None] + np.ones(nchan_data, dtype=np.float64)
     else:
