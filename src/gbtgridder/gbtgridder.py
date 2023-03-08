@@ -33,6 +33,7 @@ from . import gbtgridder_args
 from .get_data import get_data
 from .grid_otf import grid_otf
 from .make_header import make_header
+from .get_cube_info import get_cube_info
 
 gbtgridderVersion = "2.0"
 _C = 299792458.0  # speed of light (m/s)
