@@ -33,7 +33,7 @@ from . import gbtgridder_args
 from .get_data import get_data
 from .grid_otf import grid_otf
 from .make_header import make_header
-from .get_cube_info import get_cube_info
+from .get_cube_info import make_header
 
 gbtgridderVersion = "2.0"
 _C = 299792458.0  # speed of light (m/s)
@@ -440,52 +440,6 @@ def gbtgridder(args):
     refYpix = None
     refXsky = None
     refYsky = None
-#    if args.mapcenter:
-#        refXsky = args.mapcenter[0]
-#        refYsky = args.mapcenter[1]
-#    else:
-#        refYsky = round(np.mean(ysky) * 3600.0) / 3600.0
-#        if coordType[0] in ["RA", "HA"]:
-#            refXsky = round(np.mean(xsky) * 3600.0 / 15) / (3600.0 / 15.0)
-#        else:
-#            refXsky = round(np.mean(xsky_calc) * 3600.0) / 3600.0
-#            if refXsky < 0:
-#                refXsky = refXsky + 360
-
-#    # Avoid using 0,0 as map center.
-#    # `cygrid` does not handle this case well.
-#    if refXsky == 0:
-#        refXsky += 1e-8
-#    if refYsky == 0:
-#        refYsky += 1e-8
-
-    if args.clonecube is not None:
-        # use the cloned values
-        cubeInfo = get_cube_info(args.clonecube, verbose=verbose)
-        if cubeInfo is not None:
-            if (
-                (cubeInfo["xtype"] != coordType[0])
-                or (cubeInfo["ytype"] != coordType[1])
-                or (cubeInfo["proj"] != args.proj)
-                or (radesys is not None and (cubeInfo["radesys"] != radesys))
-                or (equinox is not None and (cubeInfo["equinox"] != equinox))
-            ):
-                if verbose > 2:
-                    print(
-                        "Sky coordinates of data are not the same type found in %s"
-                        % args.clonecube
-                    )
-                    print("Will not clone the coordinate information from that cube")
-                    if verbose > 4:
-                        print("xtype : ", cubeInfo["xtype"], coordType[0])
-                        print("ytype : ", cubeInfo["ytype"], coordType[1])
-                        print("proj : ", cubeInfo["proj"], args.proj)
-                        print("radesys : ", cubeInfo["radesys"], radesys)
-                        print("equinox : ", cubeInfo["equinox"], equinox)
-            else:
-                pix_scale = cubeInfo["pix_scale"]
-                nx = cubeInfo["xsize"]
-                ny = cubeInfo["ysize"]
 
     if pix_scale is None:
         if args.pixelwidth is not None:
@@ -543,6 +497,34 @@ def gbtgridder(args):
     else:
         nx = args.size[0]
         ny = args.size[1]
+
+    if args.clonecube is not None:
+        # use the cloned values
+        cubeInfo = get_cube_info(args.clonecube, verbose=verbose)
+        if cubeInfo is not None:
+            if (
+                (cubeInfo["xtype"] != coordType[0])
+                or (cubeInfo["ytype"] != coordType[1])
+                or (cubeInfo["proj"] != args.proj)
+                or (radesys is not None and (cubeInfo["radesys"] != radesys))
+                or (equinox is not None and (cubeInfo["equinox"] != equinox))
+            ):
+                if verbose > 2:
+                    print(
+                        "Sky coordinates of data are not the same type found in %s"
+                        % args.clonecube
+                    )
+                    print("Will not clone the coordinate information from that cube")
+                    if verbose > 4:
+                        print("xtype : ", cubeInfo["xtype"], coordType[0])
+                        print("ytype : ", cubeInfo["ytype"], coordType[1])
+                        print("proj : ", cubeInfo["proj"], args.proj)
+                        print("radesys : ", cubeInfo["radesys"], radesys)
+                        print("equinox : ", cubeInfo["equinox"], equinox)
+            else:
+                pix_scale = cubeInfo["pix_scale"]
+                nx = cubeInfo["xsize"]
+                ny = cubeInfo["ysize"]
 
     if refXsky is None:
         if args.mapcenter is not None:
