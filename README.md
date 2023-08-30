@@ -22,7 +22,8 @@ This tutorial assumes little is known about navigating a terminal
     ~gbosdd/pythonversions/3.8/bin/python -m venv <path/vevnName>
     source <path/vevnName>/bin/activate
     pip install -U pip setuptools wheel build
-    pip install -r requirements.txt
+    #pip install -r requirements.txt
+    pip install numpy scipy cython
     pip install -e .
 ```
 
