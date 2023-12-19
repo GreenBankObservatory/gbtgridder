@@ -525,6 +525,10 @@ def gbtgridder(args):
                 pix_scale = cubeInfo["pix_scale"]
                 nx = cubeInfo["xsize"]
                 ny = cubeInfo["ysize"]
+                refXsky = cubeInfo["xref"]
+                refYsky = cubeInfo["yref"]
+                refXpix = cubeInfo["xrefPix"]
+                refYpix = cubeInfo["yrefPix"]
 
     if refXsky is None:
         if args.mapcenter is not None:
