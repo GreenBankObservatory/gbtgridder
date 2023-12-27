@@ -506,8 +506,8 @@ def gbtgridder(args):
                 (cubeInfo["xtype"] != coordType[0])
                 or (cubeInfo["ytype"] != coordType[1])
                 or (cubeInfo["proj"] != args.proj)
-                or (radesys is not None and (cubeInfo["radesys"] != radesys))
-                or (equinox is not None and (cubeInfo["equinox"] != equinox))
+                or (radesys is not None and cubeInfo["radesys"] is not None and (cubeInfo["radesys"] != radesys))
+                or (equinox is not None and cubeInfo["equinox"] is not None and (cubeInfo["equinox"] != equinox))
             ):
                 if verbose > 2:
                     print(
