@@ -506,8 +506,8 @@ def gbtgridder(args):
                 (cubeInfo["xtype"] != coordType[0])
                 or (cubeInfo["ytype"] != coordType[1])
                 or (cubeInfo["proj"] != args.proj)
-                or (radesys is not None and (cubeInfo["radesys"] != radesys))
-                or (equinox is not None and (cubeInfo["equinox"] != equinox))
+                or (radesys is not None and cubeInfo["radesys"] is not None and (cubeInfo["radesys"] != radesys))
+                or (equinox is not None and cubeInfo["equinox"] is not None and (cubeInfo["equinox"] != equinox))
             ):
                 if verbose > 2:
                     print(
@@ -525,6 +525,10 @@ def gbtgridder(args):
                 pix_scale = cubeInfo["pix_scale"]
                 nx = cubeInfo["xsize"]
                 ny = cubeInfo["ysize"]
+                refXsky = cubeInfo["xref"]
+                refYsky = cubeInfo["yref"]
+                refXpix = cubeInfo["xrefPix"]
+                refYpix = cubeInfo["yrefPix"]
 
     if refXsky is None:
         if args.mapcenter is not None:
