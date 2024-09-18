@@ -43,12 +43,3 @@ repos:
       - id: docformatter
         args:
           - '--in-place'
-  - repo: https://github.com/jazzband/pip-tools
-    rev: 7.4.1
-    hooks:
-      - id: pip-compile
-        name: pip-compile setup.py
-        files: ^(setup\.py|requirements\.txt)$
-      - id: pip-compile
-        name: pip-compile requirements-dev.in
-        args: [requirements-dev.in]
