@@ -1,5 +1,15 @@
-from . import gbtgridder
+
+__version__ = "2.0"
+
+all = ["version"]
 
 
-def main():
-    gbtgridder.main()
+def version():
+    """Version of the gbtgridder
+
+    Returns
+    -------
+    version : str
+        gbtgridder version.
+    """
+    return __version__
