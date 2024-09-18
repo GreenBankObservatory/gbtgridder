@@ -8,6 +8,10 @@ from gbtgridder import gbtgridder, gbtgridder_args
 # test the gbtgridder function in gbtgridder.py
 # first - get args from gbtgridder_args.py
 class TestArgs:
+    def setup_method(self):
+        # Path to the test directory.
+        self.test_file_dir = os.path.dirname(os.path.abspath(__file__))
+
     def test_with_cross360(self):
         # set the output name
         name = "test_with_cross360"
@@ -16,7 +20,7 @@ class TestArgs:
         # pass in the args
         sys.argv = [sys.argv[0]]
         assert len(sys.argv) == 1
-        sys.argv.append("cross_360_sdfits.fits")
+        sys.argv.append(f"{self.test_file_dir}/cross_360_sdfits.fits")
         sys.argv.append("-o")
         sys.argv.append(name)
         sys.argv.append("--clobber")
@@ -48,7 +52,7 @@ class TestArgs:
         # pass in the args
         sys.argv = [sys.argv[0]]
         assert len(sys.argv) == 1
-        sys.argv.append("high_lat_sdfits.fits")
+        sys.argv.append(f"{self.test_file_dir}/high_lat_sdfits.fits")
         sys.argv.append("-o")
         sys.argv.append(name)
         sys.argv.append("--clobber")

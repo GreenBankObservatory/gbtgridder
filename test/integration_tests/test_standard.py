@@ -8,15 +8,15 @@ from gbtgridder import gbtgridder, gbtgridder_args
 # test the gbtgridder function in gbtgridder.py
 # first - get args from gbtgridder_args.py
 class TestArgs:
-    def test_practice(self):
-        # want to make sure pytest is working
-        assert True
+    def setup_method(self):
+        # Path to the test directory.
+        self.test_file_dir = os.path.dirname(os.path.abspath(__file__))
 
     def test_with_std_args(self):
         # set the output name
         name = "test_with_std_args"
         # pass in the args
-        sys.argv.append("test.fits")
+        sys.argv.append(f"{self.test_file_dir}/test.fits")
         sys.argv.append("-o")
         sys.argv.append(name)
         sys.argv.append("--pixelwidth")
@@ -29,8 +29,6 @@ class TestArgs:
         sys.argv.append("--size")
         sys.argv.append("40")
         sys.argv.append("40")
-        sys.argv.append("-k")
-        sys.argv.append("gaussbessel")
         sys.argv.append("--clobber")
         sys.argv.append("--autoConfirm")
         # get the args
@@ -59,7 +57,7 @@ class TestArgs:
         # pass in the args
         sys.argv = [sys.argv[0]]
         assert len(sys.argv) == 1
-        sys.argv.append("test.fits")
+        sys.argv.append(f"{self.test_file_dir}/test.fits")
         sys.argv.append("-o")
         sys.argv.append(name)
         sys.argv.append("--clobber")
@@ -90,7 +88,7 @@ class TestArgs:
         # pass in the args
         sys.argv = [sys.argv[0]]
         assert len(sys.argv) == 1
-        sys.argv.append("normal.fits")
+        sys.argv.append(f"{self.test_file_dir}/normal.fits")
         sys.argv.append("-o")
         sys.argv.append(name)
         sys.argv.append("--clobber")
