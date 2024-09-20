@@ -12,19 +12,13 @@ pip install gbtgridder
 ***Note: anything in `<*...*>` needs to be replaced with what is relevant to you and your project***
 This tutorial assumes little is known about navigating a terminal
 
-1.  To get the gridder
+1.  To get `release_2.0` of the gridder
 
 ```bash
-    # Then do the below
-    git clone https://github.com/GreenBankObservatory/gbtgridder
-    cd gbtgridder
-    # make and source a new venv
-    ~gbosdd/pythonversions/3.8/bin/python -m venv <path/vevnName>
-    source <path/vevnName>/bin/activate
-    pip install -U pip setuptools wheel build
-    pip install -r requirements.txt
-    pip install -e .
+    python -m pip install "gbtgridder @ git+https://github.com/GreenBankObservatory/gbtgridder@release_2.0"
 ```
+
+We strongly recommend that you install `gbtgridder` in a separate Python environment.
 
 2.  For more info on the gridder run the command `$ gbtgridder --help`
 
