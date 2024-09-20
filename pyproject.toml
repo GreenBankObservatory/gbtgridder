@@ -33,7 +33,7 @@ classifiers = [
 dependencies = [
     "astropy",
     "cygrid",
-    "numpy",
+    "numpy<2",
     "scipy",
 ]
 
