@@ -1,0 +1,82 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gbtgridder"
+dynamic = ["version"]
+description = "A stand-alone spectral gridder and imager for the Green Bank Telescope"
+readme = "README.md"
+license = ""
+requires-python = ">=3.9"
+authors = [
+    { name = "Green Bank Observatory" },
+    { name = "Kathlyn Purcell" },
+    { name = "Pedro Salas", email="psalas@nrao.edu" },
+    { name = "Bob Garwood" },
+    { name = "Joe Masters" },
+
+]
+keywords = [
+    "gridder",
+    "gridding",
+    "singledish",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "astropy",
+    "cygrid",
+    "numpy<2",
+    "scipy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "pip-tools",
+    "pytest"
+]
+all = ["gbtgridder[dev]"]
+
+[project.scripts]
+gbtgridder = "gbtgridder.gbtgridder:main"
+
+[project.urls]
+Homepage = "https://github.com/GreenBankObservatory/gbtgridder"
+Source = "https://github.com/GreenBankObservatory/gbtgridder/"
+Issues = "https://github.com/GreenBankObservatory/gbtgridder/issues"
+
+[tool.hatch.version]
+path = "src/gbtgridder/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+]
+
+[tool.hatch.envs.default]
+# By default hatch will effectively do $ pip install dysh[all]
+features = ["all"]
+
+[tool.pip-tools]
+src_files = ["pyproject.toml"]
+extra = ["dev"]
+resolver = "backtracking"
+output_file= "requirements.txt"
+no_strip_extras = true
+quiet = true
+no_emit_trusted_host = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["test", "src", "docs"]
+filterwarnings = [
+    "ignore::DeprecationWarning"
+    ]

@@ -11,12 +11,14 @@ class TestArgs:
     def test_with_cygrid(self):
         # set the output name
         name = "test_with_cygrid"
+        # Find the path to the test
+        test_file_dir = os.path.dirname(os.path.abspath(__file__))
         # still need some required args
         # and want to filter out the line image
         # pass in the args
         sys.argv = [sys.argv[0]]
         assert len(sys.argv) == 1
-        sys.argv.append("cygx_sdfits.fits")
+        sys.argv.append(f"{test_file_dir}/cygx_sdfits.fits")
         sys.argv.append("-o")
         sys.argv.append(name)
         sys.argv.append("--clobber")
