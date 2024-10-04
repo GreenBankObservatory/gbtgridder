@@ -12,10 +12,10 @@ pip install gbtgridder
 ***Note: anything in `<*...*>` needs to be replaced with what is relevant to you and your project***
 This tutorial assumes little is known about navigating a terminal
 
-1.  To get `release_2.0` of the gridder
+1.  To get `release_3.0` of the gridder
 
 ```bash
-    python -m pip install "gbtgridder @ git+https://github.com/GreenBankObservatory/gbtgridder@release_2.0"
+    python -m pip install "gbtgridder @ git+https://github.com/GreenBankObservatory/gbtgridder@release_3.0"
 ```
 
 We strongly recommend that you install `gbtgridder` in a separate Python environment.
@@ -28,12 +28,12 @@ We strongly recommend that you install `gbtgridder` in a separate Python environ
 
     - this command will also show the version of the gridder you are using
 
-    * currently it is `version 2.0`
+    * currently it is `version 3.0`
 
 
 3.  To run the gridder
 
-- ex. `$ gbtgridder --noweight -o my_first_grid ./test/unit_tests/test.fits --verbose 5`
+- ex. `$ gbtgridder --noweight -o my_first_grid ./test/integration_tests/test.fits --verbose 5`
 
 ```bash
     Collecting arguments and data...
@@ -201,6 +201,6 @@ optional arguments:
                         set the verbosity level-- 0-1:none, 2:errors only, 3:+warnings, 4(default):+user info, 5:+debug
   -V, --version         show program's version number and exit
 
-gbtgridder version: 2.0
+gbtgridder version: 3.0
 
 ```

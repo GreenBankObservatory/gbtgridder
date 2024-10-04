@@ -26,7 +26,7 @@ This tutorial assumes little is known about navigating a terminal
 
     - this command will also show the version of the gridder you are using
 
-    * currently it is `version 2.0`
+    * currently it is `version 3.0`
 
 
 3.  To run the gridder
@@ -192,4 +192,4 @@ Printout for `gbtgridder`
                           set the verbosity level-- 0-1:none, 2:errors only, 3:+warnings, 4(default):+user info, 5:+debug
     -V, --version         show program's version number and exit
 
-  gbtgridder version: 2.0
+  gbtgridder version: 3.0
