@@ -14,17 +14,20 @@ This tutorial assumes little is known about navigating a terminal
 
 1.  To get `release_3.0` of the gridder
 
-```bash
-    python -m pip install "gbtgridder @ git+https://github.com/GreenBankObservatory/gbtgridder@release_3.0"
-```
-
-We strongly recommend that you install `gbtgridder` in a separate Python environment. You can do so with the following:
+PS. We strongly recommend that you install `gbtgridder` in a separate Python environment. You can do so with the following:
 ```bash
   # make and source a new venv
     ~gbosdd/pythonversions/3.11/bin/python -m venv <path/vevnName>
     source <path/vevnName>/bin/activate
     pip install -U pip setuptools wheel build
 ```
+
+[ Then ] You can install gbtgridder:
+```bash
+    python -m pip install "gbtgridder @ git+https://github.com/GreenBankObservatory/gbtgridder@release_3.0"
+```
+
+
 
 2.  For more info on the gridder run the command `$ gbtgridder --help`
 

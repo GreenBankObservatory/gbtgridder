@@ -7,7 +7,7 @@ name = "gbtgridder"
 dynamic = ["version"]
 description = "A stand-alone spectral gridder and imager for the Green Bank Telescope"
 readme = "README.md"
-license = ""
+#license = ""
 requires-python = ">=3.9"
 authors = [
     { name = "Green Bank Observatory" },
