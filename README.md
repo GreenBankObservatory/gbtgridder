@@ -3,46 +3,41 @@
 A stand-alone spectral gridder and imager for the Green Bank Telescope
 
 ## Installation
+
+### General user
+We recommend installing the `gbtgridder` in a separate virtual environment to avoid conflicts with other packages.
+```bash
+python -m pip install "gbtgridder @ git+https://github.com/GreenBankObservatory/gbtgridder@release_3.0"
+```
+
+### GB dev
 Will currently only work within the GBO network, after configuring to use the private PyPI repo
+```bash
 pip install gbtgridder
+```
 
-
-# How to Get and Use the GBTGridder
+## Usage
 
 ***Note: anything in `<*...*>` needs to be replaced with what is relevant to you and your project***
-This tutorial assumes little is known about navigating a terminal
 
-1.  To get `release_3.0` of the gridder
-
-PS. We strongly recommend that you install `gbtgridder` in a separate Python environment. You can do so with the following:
+1. To grid a series of SDFITS files and save the outputs to my\_filename
 ```bash
-  # make and source a new venv
-    ~gbosdd/pythonversions/3.11/bin/python -m venv <path/vevnName>
-    source <path/vevnName>/bin/activate
-    pip install -U pip setuptools wheel build
+gbtgridder -o <*my_filename*> <*input_sdfits_files*>
 ```
+This will generate two files, my\_filename\_cube.fits and my\_filename\_weight.fits. 
+The \_cube.fits file is the spectral line cube, and the \_weight.fits file is a cube with the weight used during the gridding.
 
-[ Then ] You can install gbtgridder:
+2.  To see the available options, and the version of the `gbtgridder` being used (currently 3.0): 
 ```bash
-    python -m pip install "gbtgridder @ git+https://github.com/GreenBankObservatory/gbtgridder@release_3.0"
+gbtgridder --help
 ```
+The full printout is available in the [appendix](#appendix).
 
+### Example
 
+Run the gridder without outputting a weight cube and with the highest level of verbosity. This will grid the data in `./test/integration_tests/test.fits`.
 
-2.  For more info on the gridder run the command `$ gbtgridder --help`
-
-    - this will give you information on what arguments to use and how to use them
-
-    * see appendix for the full printout
-
-    - this command will also show the version of the gridder you are using
-
-    * currently it is `version 3.0`
-
-
-3.  To run the gridder
-
-- ex. `$ gbtgridder --noweight -o my_first_grid ./test/integration_tests/test.fits --verbose 5`
+- `gbtgridder --noweight -o my_first_grid ./test/integration_tests/test.fits --verbose 5`
 
 ```bash
     Collecting arguments and data...
@@ -52,7 +47,7 @@ PS. We strongly recommend that you install `gbtgridder` in a separate Python env
          clobber :  False
 ```
 
-- Once it reads in the fits header data it will display several crucial parameters and prompt you if you'd like to continue.
+- Once it reads in the FITS header data it will display several crucial parameters and prompt you if you'd like to continue.
 
 ```bash
 Data Extracted Successfully.
@@ -99,7 +94,7 @@ Image size    43x43
 
 ```
 
-- When it is done it will write your .fits files. The output for example above is only cube, so an example of the output when the gridding is complete is
+- When it is done it will write your FITS files. The output for this example is only a cube, so the output when the gridding is complete is
 
 ```bash
  Would you like to continue with these parameters?
@@ -114,32 +109,39 @@ Writing cube
 Runtime: 0.1 minutes
 ```
 
-4.  Reviewing the output files
+This will write a FITS cube called my\_first\_grid\_cube.fits.
 
-In the above example, only cube output was specified, so the output file is only `*file output name*_cube.fits`. We want to look at this data
-        1.  Open casaviewer using `casaviewer`
-        2.  Select your file
-        3.  Select the appropriate file type - mine was 'raster'
-        4.  You will now see you image - Congrats!
-        5.  Below are more tips on using casaviewer
+### Viewing the output files
+
+The outputs from the `gbtgridder` are FITS cubes that should be compatible with most FITS image viewers 
+(e.g., <a href="https://casa.nrao.edu/UserMan/UserManch7.html" target="_blank">`casaviewer`</a>
+or
+<a href="https://sites.google.com/cfa.harvard.edu/saoimageds9" target="_blank">`SAOImageDS9`</a>)
+
+In the above example, only cube output was specified, so the output file is only my\_first\_grid\_cube.fits. We want to look at this data
+1.  Open casaviewer using `casaviewer`
+2.  Select your file
+3.  Select the appropriate file type
+4.  You will now see you image - Congrats!
+5.  Below are more tips on using casaviewer
 
 
 * * *
 * * *
 
 
-# Testing
+## Testing
 There are both unit and integration tests available through pytest. To run either go to the root of the repo and run
 ```bash
     RunAll[Unit,Integration]Tests
 ```
-Please feel free to use the provided sdfits files to compare to any other version of a gridder to determine the gbtgridder-test's accuracy
+Please feel free to use the provided SDFITS files to compare to any other version of a gridder to determine the gbtgridder-test's accuracy
 
 * * *
 * * *
 
 
-# CasaViewer Tips and Tricks
+## CasaViewer Tips and Tricks
 
 The menu bar above the image can be clicked by the three mouse buttons (right,left and scroll) to change the hotkeys and manipulate the image
 
@@ -157,7 +159,7 @@ The menu bar above the image can be clicked by the three mouse buttons (right,le
 * * *
 * * *
 
-# Appendix
+# <a name="#appendix"></a>Appendix
 
 
 ## Printout for `gbtgridder --help`
