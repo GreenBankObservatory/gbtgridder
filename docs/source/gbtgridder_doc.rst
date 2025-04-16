@@ -1,7 +1,7 @@
 GBTGridder-test Docs
 ======================================
 
-**For what:** GBTGridder Version 2.0, cygrid version
+**For what:** GBTGridder Version 3.0, cygrid version
 
 **Based On:** GBTGridder Version 0.5 https://github.com/GreenBankObservatory/gbtgridder branch: `release_1.0`
 

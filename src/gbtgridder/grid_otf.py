@@ -63,8 +63,8 @@ def grid_otf(
     """Grid individual spectra onto a specified regular grid using the package
     cygrid https://github.com/bwinkel/cygrid/tree/master/cygrid.
 
-    Version 2.0 based on version 0.5 by Bob Garwood (NRAO) and cygrid by bwinkel
-    For Verison 2.0 support reach out to Kathlyn Purcell (kpurcell@nrao.edu)
+    Version 3.0 based on version 0.5 by Bob Garwood (NRAO) and cygrid by bwinkel
+    For Verison 3.0 support reach out to Kathlyn Purcell (kpurcell@nrao.edu)
 
     Inputs:
        spec - 1-d array containing the spectra to be gridded
