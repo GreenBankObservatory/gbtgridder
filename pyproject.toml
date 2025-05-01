@@ -28,7 +28,13 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = {file = ["requirements.txt"]}
+dependencies = [
+    "astropy",
+    "cygrid @ git+https://github.com/bwinkel/cygrid",
+    "numpy<2",
+    "scipy",
+    "numpy",
+]
 
 [project.optional-dependencies]
 dev = [

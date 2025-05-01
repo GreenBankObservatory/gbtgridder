@@ -1,8 +1,9 @@
 name: Upload Python Package to PyPI when a Release is Created
 
 on:
-  release:
-    types: [created]
+  push
+#  release:
+#    types: [created]
 
 jobs:
   build-gridder:
@@ -10,20 +11,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-      with:
-        persist-credentials: false
-    - name: Set up Python
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: "3.x"
-    - name: Install pypa/build
-      run: >-
-        python3 -m
-        pip install
-        build
-        --user
+        #cache: "pip"
+        #cache-dependency-path: "requirements.txt"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        python -m pip install build --user
     - name: Build a binary wheel and a source tarball
       run: python3 -m build
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
 
   pypi-publish:
     name: Publish release to PyPI
@@ -31,9 +36,15 @@ jobs:
     - build-gridder
     runs-on: ubuntu-latest
     environment:
-      name: pypi
+      name: gridder-env
       url: https://pypi.org/p/gbtgridder
     permissions:
       id-token: write
-      - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1

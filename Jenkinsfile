@@ -1,5 +1,16 @@
+#!groovy
+
+def schedule = env.BRANCH_NAME == 'master'       ? '@weekly' :
+               env.BRANCH_NAME == 'release_3.0'  ? "@weekly" : ''
+
+
 pipeline {
-  agent 'any'
+  agent {label 'rhel8'}
+
+  triggers {
+    // trigger builds per schedule
+    cron(schedule)
+  }
 
   environment {
     PATH = "/home/gbors/pythonversions/3.8/bin:${PATH}"
@@ -9,19 +20,39 @@ pipeline {
     stage('Init') {
       steps {
         lastChanges(
-          since: 'PREVIOUS_REVISION',
+          since: 'LAST_SUCCESSFUL_BUILD',
           format:'SIDE',
           matching: 'LINE'
         )
       }
     }
 
-    stage('pre-commit') {
+    stage('virtualenv') {
       steps {
-        sh """
-          # Run only on changed files (if there is no previous commit, use the current one)
-          pre-commit run --from-ref ${env.GIT_PREVIOUS_COMMIT != null ? env.GIT_PREVIOUS_COMMIT : env.GIT_COMMIT} --to-ref ${env.GIT_COMMIT}
-        """
+        sh '''
+          ~gbosdd/pythonversions/3.9/bin/python -m venv jenkins-gridder-env
+          source jenkins-gridder-env/bin/activate
+          pip install -U pip setuptools wheel build
+          pip install pytest
+          python -m pip install "gbtgridder @ git+https://github.com/GreenBankObservatory/gbtgridder.git@master"
+        '''
+      }
+    }
+
+    stage('UnitTest') {
+      steps {
+        sh '''
+        source jenkins-gridder-env/bin/activate
+          ./RunAllUnitTests
+        '''
+      }
+    }
+    stage('IntegrationTest') {
+      steps {
+        sh '''
+        source jenkins-gridder-env/bin/activate
+          ./RunAllIntegrationTests
+        '''
       }
     }
   }
