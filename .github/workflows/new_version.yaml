@@ -26,7 +26,7 @@ jobs:
     - build-gridder
     runs-on: ubuntu-latest
     environment:
-      name: pypi
+      name: gridder-env
       url: https://pypi.org/p/gbtgridder
     permissions:
       id-token: write
