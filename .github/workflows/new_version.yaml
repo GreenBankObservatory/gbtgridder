@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/gbtgridder
+      url: https://pypi.org/p/gbtgridder/
     permissions:
       id-token: write
       - name: Publish package distributions to PyPI
