@@ -1,8 +1,9 @@
 name: Upload Python Package to PyPI when a Release is Created
 
 on:
-  release:
-    types: [created]
+  push
+#  release:
+#    types: [created]
 
 jobs:
   build-gridder:
@@ -13,16 +14,16 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.x"
+        cache: "pip"
+        cache-dependency-path: "requirements.txt"
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install flake8 pytest numpy
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install hatch
-    - name: Build with hatch
-      run: |
-        hatch build --clean
+        python install -r requirements.txt
+        python -m pip install build --user
+    - name: Build a binary wheel and a source tarball
+      run: python3 -m build
     - name: Store the distribution packages
       uses: actions/upload-artifact@v4
       with:
