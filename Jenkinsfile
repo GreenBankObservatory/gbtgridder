@@ -27,9 +27,22 @@ pipeline {
       }
     }
 
+    stage('virtualenv') {
+      steps {
+        sh '''
+          ~gbosdd/pythonversions/3.9/bin/python -m venv jenkins-gridder-env
+          source jenkins-gridder-env/bin/activate
+          pip install -U pip setuptools wheel build
+          pip install pytest
+          python -m pip install "gbtgridder @ git+git@github.com:GreenBankObservatory/gbtgridder.git@master
+        '''
+      }
+    }
+
     stage('UnitTest') {
       steps {
         sh '''
+        source jenkins-gridder-env/bin/activate
           ./RunAllUnitTests
         '''
         junit '**/results-*.xml'
@@ -38,6 +51,7 @@ pipeline {
     stage('IntegrationTest') {
       steps {
         sh '''
+        source jenkins-gridder-env/bin/activate
           ./RunAllIntegrationTests
         '''
         junit '**/results-*.xml'
