@@ -1,4 +1,4 @@
 echo Running Gridder Integration tests
-cd test/integration_tests
+cd src/gbtgridder/test/integration_tests
 pytest
-cd ../..
+cd ../../../..

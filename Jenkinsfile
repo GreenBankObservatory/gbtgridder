@@ -27,12 +27,20 @@ pipeline {
       }
     }
 
-    stage('pre-commit') {
+    stage('UnitTest') {
       steps {
-        sh """
-          # Run only on changed files (if there is no previous commit, use the current one)
-          pre-commit run --from-ref ${env.GIT_PREVIOUS_COMMIT != null ? env.GIT_PREVIOUS_COMMIT : env.GIT_COMMIT} --to-ref ${env.GIT_COMMIT}
-        """
+        sh '''
+          ./RunAllUnitTests
+        '''
+        junit '**/results-*.xml'
+      }
+    }
+    stage('IntegrationTest') {
+      steps {
+        sh '''
+          ./RunAllIntegrationTests
+        '''
+        junit '**/results-*.xml'
       }
     }
   }
