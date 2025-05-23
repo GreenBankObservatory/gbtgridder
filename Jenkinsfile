@@ -34,7 +34,7 @@ pipeline {
           source jenkins-gridder-env/bin/activate
           pip install -U pip setuptools wheel build
           pip install pytest
-          python -m pip install "gbtgridder @ git+git@github.com:GreenBankObservatory/gbtgridder.git@master
+          python -m pip install "gbtgridder @ git+https://github.com/GreenBankObservatory/gbtgridder.git@master"
         '''
       }
     }
