@@ -7,7 +7,7 @@ A stand-alone spectral gridder and imager for the Green Bank Telescope
 ### General user
 We recommend installing the `gbtgridder` in a separate virtual environment to avoid conflicts with other packages.
 ```bash
-python -m pip install "gbtgridder @ git+https://github.com/GreenBankObservatory/gbtgridder@release_3.0"
+python -m pip install "gbtgridder @ git+git@github.com:GreenBankObservatory/gbtgridder.git@release_3.0"
 ```
 
 ### GB dev

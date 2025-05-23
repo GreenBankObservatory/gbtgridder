@@ -1,5 +1,16 @@
+#!groovy
+
+def schedule = env.BRANCH_NAME == 'master'       ? '@weekly' :
+               env.BRANCH_NAME == 'release_3.0'  ? "@weekly" : ''
+
+
 pipeline {
-  agent 'any'
+  agent {label 'rhel8'}
+
+  triggers {
+    // trigger builds per schedule
+    cron(schedule)
+  }
 
   environment {
     PATH = "/home/gbors/pythonversions/3.8/bin:${PATH}"
@@ -9,7 +20,7 @@ pipeline {
     stage('Init') {
       steps {
         lastChanges(
-          since: 'PREVIOUS_REVISION',
+          since: 'LAST_SUCCESSFUL_BUILD',
           format:'SIDE',
           matching: 'LINE'
         )
