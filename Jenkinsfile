@@ -45,7 +45,6 @@ pipeline {
         source jenkins-gridder-env/bin/activate
           ./RunAllUnitTests
         '''
-        junit '**/results-*.xml'
       }
     }
     stage('IntegrationTest') {
@@ -54,7 +53,6 @@ pipeline {
         source jenkins-gridder-env/bin/activate
           ./RunAllIntegrationTests
         '''
-        junit '**/results-*.xml'
       }
     }
   }
