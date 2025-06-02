@@ -33,6 +33,7 @@ dependencies = [
     "cygrid @ git+https://github.com/bwinkel/cygrid",
     "numpy<2",
     "scipy",
+    "numpy",
 ]
 
 [project.optional-dependencies]
